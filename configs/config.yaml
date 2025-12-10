@@ -1,0 +1,19 @@
+#######################
+###  Glogal Config  ###
+#######################
+
+
+# world config
+path_config_world: 'H:\Documents\projets\LifeSim\configs\config_world.yaml'
+# agent config
+path_config_agent: 'H:\Documents\projets\LifeSim\configs\config_agent.yaml'
+
+### Simulation Window
+window:
+  height: 720
+  width: 1280
+
+### Metrics
+metrics:
+  update_step_freq: 100
+  window_update_time_freq: 1000

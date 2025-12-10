@@ -1,0 +1,22 @@
+
+### World
+height: 1440
+width: 2560
+
+### Biome
+biome:
+
+
+### Food
+food_update_step_freq: 50
+food_spawn_rate_per_pixel: 0.00008
+food_energy: 250
+food_size: 1
+food_initial_n_step: 100
+
+### Agent
+n_agent: 1
+
+
+
+### World
