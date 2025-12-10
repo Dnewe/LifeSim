@@ -32,6 +32,9 @@ class SimulationWindow():
                     self.event_close.set()
                     return
             
+            self.event_ready.wait()
+            self.event_ready.clear()
+            
             keys = pygame.key.get_pressed()
             if keys[pygame.K_LEFT]:
                 camera_x -= self.cam_speed
@@ -45,8 +48,6 @@ class SimulationWindow():
             self.cam_x.value = max(0, min(self.world_w - self.window_w, camera_x))
             self.cam_y.value = max(0, min(self.world_h - self.window_h, camera_y))
             
-            self.event_ready.wait()
-            self.event_ready.clear()
             pygame.surfarray.blit_array(screen, frame)
             pygame.display.flip()
         

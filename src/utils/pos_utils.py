@@ -10,17 +10,12 @@ def init(w,h):
     global H,W
     H= h
     W= w
-
-
-def clip_value(value, max_v, min_v=0):
-    value = max(min_v, min(max_v, value))
-    return value
-
+    
 
 def clip_pos(pos) -> Pos:
     x, y = pos
-    x = clip_value(x, W-1, 0)
-    y = clip_value(y, H-1, 0)
+    x = max(0, min(W-1, x))
+    y = max(0, min(H-1, y))
     return x, y
 
 
@@ -44,19 +39,16 @@ def distance(pos1, pos2) -> int:
     return np.hypot(dx, dy)
 
 
-def square(pos, radius, w=None, h=None):
+def square(pos, size, w=None, h=None):
     w = W if w is None else w
     h = H if h is None else h
     x, y = pos
+    radius = size #(size-1)//2
     x_min = max(0, x-radius)
     x_max = min(w-1, x_min+2*radius)
     y_min = max(0, y-radius)
     y_max = min(h-1, y_min+2*radius)
     return x_min, x_max, y_min, y_max
-
-
-def pos_in_bounds(pos, min_x, max_x, min_y, max_y):
-    pass
 
 
 def random_pos(pos=None, radius=None) -> Pos:

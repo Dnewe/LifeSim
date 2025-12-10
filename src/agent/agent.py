@@ -141,10 +141,10 @@ class Agent():
             r = FACTOR * self.dna.genes_values['morphology']**2
             g = FACTOR * self.dna.genes_values['physiology']**2
             b = FACTOR * self.dna.genes_values['sensorial']**2
-            r = posUtils.clip_value(r, 255, 0)
-            g = posUtils.clip_value(g, 255, 0)
-            b = posUtils.clip_value(b, 255, 0)
         else: # default
             r, g, b = 0, 255, 255
 
+        r = max(0, min(r, 255))
+        g = max(0, min(g, 255))
+        b = max(0, min(b, 255))
         return r, g, b

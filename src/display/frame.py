@@ -20,7 +20,7 @@ class Frame():
         
         # biomes
         visible_biome = world.food_map.biome_arr[x0:x1, y0:y1]
-        factor = 100 / visible_biome.max()
+        factor = 100 / world.food_map.biome_arr.max()
         self.array[:] = visible_biome[..., None] * factor
         
         # foods
