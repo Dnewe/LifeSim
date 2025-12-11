@@ -1,6 +1,7 @@
-from multiprocessing import Queue
 from typing import Dict, List
+from multiprocessing import Queue
 from world import World
+from sklearn.decomposition import PCA
 import numpy as np
 import time
 
@@ -14,7 +15,9 @@ class Metrics():
         self.deaths = []
         
         self.genes_mean_values = {}
-        self.genes_std_values = {}
+        self.genes_cv_values = {}
+        self.species_scatter_points = np.zeros((2,2))
+        self.species_labels = []
 
         self.step_freq = step_freq
         self.n_step = 0
@@ -30,6 +33,7 @@ class Metrics():
         self.births.append(world.n_births)
         self.deaths.append(world.n_deaths)
         self.update_attr_metrics(world)
+        self.update_species_scatter(world)
         self.queue.put(self.snapshot())
         
     def update_frame_per_s(self):
@@ -41,11 +45,18 @@ class Metrics():
         for k in world.genetic_context.genes_mean.keys():
             if f"mean_{k}" not in self.genes_mean_values:
                 self.genes_mean_values[f"mean_{k}"] = [world.genetic_context.genes_mean[k]]
-                self.genes_std_values[f"std_{k}"] = [world.genetic_context.genes_std[k]]
+                self.genes_cv_values[f"cv_{k}"] = [world.genetic_context.genes_std[k]]
             else:
                 self.genes_mean_values[f"mean_{k}"].append(world.genetic_context.genes_mean[k])
-                self.genes_std_values[f"std_{k}"].append(world.genetic_context.genes_std[k])
+                self.genes_cv_values[f"cv_{k}"].append(world.genetic_context.genes_std[k])
 
+    def update_species_scatter(self, world: World):
+        dnas = [a.dna for a in world.agents]
+        genes = dnas[0].gene_values.keys()
+        mat = np.array([[dna.gene_values[g] for g in genes] for dna in dnas])
+        pca = PCA(n_components=2)
+        self.species_labels = np.array([a.specie for a in world.agents])
+        self.species_scatter_points = pca.fit_transform(mat)
 
     def snapshot(self):
         return {
@@ -54,6 +65,7 @@ class Metrics():
             "population": self.population[:],
             "births": self.births[:],
             "deaths": self.deaths[:],
+            "species_scatter_points_and_labels": (self.species_scatter_points, self.species_labels),
             **self.genes_mean_values,
-            **self.genes_std_values# unpack copy of dict
+            **self.genes_cv_values# unpack copy of dict
         }

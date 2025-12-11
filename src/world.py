@@ -93,13 +93,14 @@ class World():
             
     def update_genetic_context(self):
         self.genetic_context.update_stats([a.dna for a in self.agents])
-        # TODO compute species
+        if self.step_count %50 == 0:
+            self.genetic_context.compute_species(self.agents)
 
     def step(self):
         self.step_count += 1
+        self.update_genetic_context()
         self.update_agents()
         self.update_food()
-        self.update_genetic_context()
         
         
         

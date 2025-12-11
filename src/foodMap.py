@@ -18,7 +18,7 @@ class FoodMap():
         self.biome_arr = np.zeros((w, h), dtype=np.float32)
         self.food_arr = np.zeros((w, h), dtype=np.int32)
 
-    def generate_biomes(self, scale= 0.001, octaves= 2, exponent=3):
+    def generate_biomes(self, scale= 0.0005, octaves= 2, exponent=3):
         x, y = np.meshgrid(
             np.arange(self.width) * scale,
             np.arange(self.height) * scale,
@@ -49,7 +49,7 @@ class FoodMap():
     
     def get_food_size(self, pos: Pos):
         energy = self.food_arr[*pos]
-        size = self.base_size + np.log2(energy)*0.05
+        size = self.base_size*(1/self.base_energy * energy)**0.5
         return int(size)
     
     def get_food_color(self, pos: Pos):

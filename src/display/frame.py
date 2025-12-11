@@ -4,7 +4,7 @@ from world import World
 
 
 class Frame():
-    def __init__(self, w, h, cam_x, cam_y, shm, agent_display_mode='gene_values') -> None:
+    def __init__(self, w, h, cam_x, cam_y, shm, agent_display_mode='specie') -> None:
         self.agent_display_mode = agent_display_mode
         self.w = w
         self.h = h

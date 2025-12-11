@@ -5,6 +5,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from world import World
     from agent.agent import Agent
+    
+
+# Idle Times after doing actions
+WANDERING_IDLE_TIME = 10
+EATING_IDLE_TIME = 20
+MATING_IDLE_TIME = 50
+ATTACKING_IDLE_TIME = 10
 
 
 class Goal():
@@ -29,6 +36,7 @@ class WanderGoal(Goal):
         reached = agent.walk(agent.wander_pos, WANDER_SPEED_FACTOR)
         if reached:
             agent.wander_pos = None
+            agent.idle_time = WANDERING_IDLE_TIME
         SENSE_COST_FACTOR = 0.5
         self.cost = agent.dna.step_cost * WANDER_SPEED_FACTOR + agent.dna.sense_cost * SENSE_COST_FACTOR
 
@@ -37,6 +45,7 @@ class EatGoal(Goal):
     def exec(self, agent: 'Agent', world:'World'):
         if self.kwargs['food_dist'] < agent.dna.size:
             self._eat(self.kwargs['food_pos'], agent, world)
+            agent.idle_time = EATING_IDLE_TIME
             SENSE_COST_FACTOR = 2.
             self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR
         else:
@@ -82,14 +91,16 @@ class AttackGoal(Goal):
     Attack based on color difference
     """
     def exec(self, agent: 'Agent', world: 'World'):
-        if self.kwargs['target_dist'] < agent.dna.size:
+        if self.kwargs['target_dist'] < agent.dna.size + self.kwargs['target'].dna.size:
             self._attack(agent, self.kwargs['target'], world)
+            agent.idle_time = ATTACKING_IDLE_TIME
+            STEP_COST_FACTOR = 3.
             SENSE_COST_FACTOR = 2.
-            self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR
+            self.cost = agent.dna.step_cost * STEP_COST_FACTOR + agent.dna.sense_cost * SENSE_COST_FACTOR
         else:
             agent.walk(self.kwargs['target'].get_pos())
             SENSE_COST_FACTOR = 1.
             self.cost = agent.dna.step_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
             
-    def _attack(self, agent, target, world):
-        pass
+    def _attack(self, agent: 'Agent', target: 'Agent', world: 'World'):
+        target.health -= agent.dna.damage

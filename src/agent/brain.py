@@ -40,38 +40,46 @@ class Brain():
     
 
 class ConditionalBrain(Brain):
-    # TODO has the variables of flee_distance, follow_distances, etcc
     def __init__(self) -> None:
         self.type = 'conditional'
-        self.flee_distance = 5
+        self.flee_distance = 20
+        self.agressivity_threshold = 1.5
         self.starve_threshold_ratio = 0.8
         self.context = {}
         
     def sense(self, agent: 'Agent', world: 'World'):
         near_agent, near_agent_dist = world.get_nearest_agent(agent, int(agent.dna.vision_range))
         near_food, near_food_dist = world.get_nearest_food(agent.get_pos(), int(agent.dna.vision_range))
+        near_agent_dna_dist = world.genetic_context.dna_distance(agent.dna, near_agent.dna) if near_agent is not None else None
         self.context = {
             'self_dna': agent.dna,
             'energy': agent.energy,
             'ready_to_mate': agent.ready_to_mate,
             'near_agent': near_agent,
             'near_agent_dist': near_agent_dist,
+            'near_agent_dna_dist': near_agent_dna_dist,
             'near_food': near_food,
             'near_food_dist': near_food_dist,
         }
         
     def decide(self):
         # mating
-        if self.context['near_agent'] is not None and self.context['ready_to_mate'] and self.context['near_agent'].ready_to_mate:
+        can_mate = self.context['near_agent'] is not None and self.context['ready_to_mate'] and self.context['near_agent'].ready_to_mate
+        if can_mate and self.context['near_agent_dna_dist'] < self.context['self_dna'].partner_dna_distance:
             return MateGoal(partner = self.context['near_agent'], partner_dist = self.context['near_agent_dist'])
         # attacking
-        if self.context['near_agent'] is not None and False:
+        can_attack = self.context['near_agent'] is not None and self.context["energy"] < self.context["self_dna"].max_energy * self.starve_threshold_ratio
+        if can_attack and self.context['self_dna'].agressivity > self.agressivity_threshold \
+            and self.context['near_agent_dna_dist'] > self.context['self_dna'].partner_dna_distance:
             return AttackGoal(target = self.context['near_agent'], target_dist = self.context['near_agent_dist'])
         # fleeing
-        if self.context['near_agent'] is not None and self.context['near_agent_dist'] < self.flee_distance:
+        can_flee = self.context['near_agent'] is not None
+        if can_flee and self.context['near_agent_dna_dist'] > self.context['self_dna'].partner_dna_distance \
+                    and self.context['near_agent_dist'] < self.flee_distance:
             return FleeGoal(pos_to_flee = self.context['near_agent'].get_pos())     
         # eating
-        if self.context['near_food'] is not None and self.context["energy"] < self.context["self_dna"].max_energy * self.starve_threshold_ratio:
+        can_eat = self.context['near_food'] is not None
+        if  can_eat and self.context["energy"] < self.context["self_dna"].max_energy * self.starve_threshold_ratio:
             return EatGoal(food_pos = self.context['near_food'], food_dist = self.context['near_food_dist']) 
         # wander
         return WanderGoal()

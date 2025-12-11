@@ -9,10 +9,10 @@ class DNA():
     # way to merge two parent dnas into a child dna
     merge_mode: Literal['mean', 'rdm_choice']
     # rules from config
-    genes_rules: Dict
+    gene_rules: Dict
     attributes_rules: Dict
     # values
-    genes_values: Dict
+    gene_values: Dict
     # scale of the normal distrubition used during random mutation
     mutation_scale: float
     
@@ -20,10 +20,14 @@ class DNA():
     # physical
     size: float
     speed: float
-    # 
+    # behavioral
+    agressivity: float
+    partner_dna_distance: float
+    # physiological (attack & defense)
     damage: float
-    health: float
-    # physiological
+    max_health: float
+    regeneration: float
+    # physiological (energy & mating)
     lifespan: float
     max_energy: float
     energy_to_mate: float
@@ -38,9 +42,9 @@ class DNA():
     mating_cooldown: float
     
     
-    def __init__(self, genes_values, genes_rules, attributes_rules, merge_mode, mutation_scale) -> None:
-        self.genes_values = genes_values
-        self.genes_rules = genes_rules
+    def __init__(self, gene_values, gene_rules, attributes_rules, merge_mode, mutation_scale) -> None:
+        self.gene_values = gene_values
+        self.gene_rules = gene_rules
         self.attributes_rules = attributes_rules
         self.merge_mode = merge_mode
         self.mutation_scale = mutation_scale
@@ -48,15 +52,15 @@ class DNA():
     
     @classmethod
     def from_config(cls, config: Dict):
-        genes_values = {k: v['value'] for k, v in config['genes'].items()}
-        return cls(genes_values, config['genes'], config['attributes'], config['merge_mode'], config['mutation_scale'])
+        gene_values = {k: v['value'] for k, v in config['genes'].items()}
+        return cls(gene_values, config['genes'], config['attributes'], config['merge_mode'], config['mutation_scale'])
     
     @classmethod
     def from_parents(cls, dna1:Self, dna2:Self):
         merge_mode = np.random.choice([dna1.merge_mode, dna2.merge_mode])
         mutation_scale = np.random.choice([dna1.mutation_scale, dna2.mutation_scale])
-        genes_values = {k: cls._merge_values(dna1.genes_values[k], dna2.genes_values[k], merge_mode) for k in dna1.genes_values.keys()}
-        return cls(genes_values, dna1.genes_rules, dna1.attributes_rules, merge_mode, mutation_scale)
+        gene_values = {k: cls._merge_values(dna1.gene_values[k], dna2.gene_values[k], merge_mode) for k in dna1.gene_values.keys()}
+        return cls(gene_values, dna1.gene_rules, dna1.attributes_rules, merge_mode, mutation_scale)
     
     @classmethod
     def _merge_values(cls, v1, v2, merge_mode):
@@ -70,19 +74,19 @@ class DNA():
             
     def compute_attributes(self):
         for name, rules in self.attributes_rules.items():
-            value = rules["factor"] * eval_expr(rules["expr"], self.genes_values)
+            value = rules["factor"] * eval_expr(rules["expr"], self.gene_values)
             value = self._clamp_value(value, rules["min"], rules["max"])
             setattr(self, name, value)
     
     def mutate(self, scale_factor=1.):
         # TODO other types of mutation
-        for k, rules in self.genes_rules.items():
+        for k, rules in self.gene_rules.items():
             if rules['mutable']:
                 scale = rules['mutation_factor'] * self.mutation_scale * scale_factor
                 if rules['type'] == 'continuous':
-                    self.genes_values[k] = self._clamp_value(self._random_continuous(self.genes_values[k], scale), rules['min'], rules['max'])
+                    self.gene_values[k] = self._clamp_value(self._random_continuous(self.gene_values[k], scale), rules['min'], rules['max'])
                 elif rules['type'] == 'discrete':
-                    self.genes_values[k] = self._random_discrete(self.genes_values[k], scale, rules['domain'], rules['weights'])
+                    self.gene_values[k] = self._random_discrete(self.gene_values[k], scale, rules['domain'], rules['weights'])
                 
     def _random_discrete(self, cur_v, scale, domain, weights):
         probs = [(scale*w)/(len(domain)-1) if cur_v == v else 1-scale for v,w in zip(domain, weights)]

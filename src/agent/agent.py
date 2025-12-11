@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from world import World
 from agent.goal import *
 from agent.brain import Brain
+import matplotlib.pyplot as plt
 
 
 class Agent():
@@ -13,8 +14,10 @@ class Agent():
     x:float
     y:float
     alive:bool
+    health: float
     goal:'Goal'
     generation:int
+    specie: int
     age:int
     ready_to_mate:bool
     energy:float
@@ -52,10 +55,13 @@ class Agent():
     def _init_vars(self):
         self.id = 0
         self.age = 0
+        self.specie = 0
+        self.health = self.dna.max_health
         self.alive = True
         self.energy = self.dna.max_energy * 0.75
         self.goal = IdleGoal()
         self.wander_pos = None
+        self.idle_time = 25
         self.ready_to_mate = False
         self.mating_cooldown = self.dna.mating_cooldown
 
@@ -69,17 +75,23 @@ class Agent():
         self.brain.sense(self, world)
 
     def decide(self):
-        self.goal = self.brain.decide()
+        self.goal = self.brain.decide() if self.idle_time<=0 else IdleGoal()
 
     def act(self, world):
         self.goal.exec(self, world)
 
     def update(self):
-        self.age += 1
-        self.mating_cooldown = max(0, self.mating_cooldown-1)
-        self.energy -= self.goal.cost
-        if self.energy <=0 or self.age >= self.dna.lifespan:
+        # alive / dead
+        if self.energy <= 0 or self.age >= self.dna.lifespan or self.health <= 0:
             self.die()
+        # attributes
+        self.energy -= self.goal.cost
+        self.health = min(self.dna.max_health, self.health + self.dna.regeneration)
+        # timer
+        self.age += 1
+        self.idle_time = max(0, self.idle_time-1)
+        self.mating_cooldown = max(0, self.mating_cooldown-1)
+        # reproduction
         if self.energy >= self.dna.energy_to_mate and self.age >= self.dna.age_to_mate and self.mating_cooldown==0:
             self.ready_to_mate = True
         elif self.energy < self.dna.energy_to_mate:
@@ -138,9 +150,12 @@ class Agent():
             b = 255*factor
         elif mode == 'gene_values':
             FACTOR = 64
-            r = FACTOR * self.dna.genes_values['morphology']**2
-            g = FACTOR * self.dna.genes_values['physiology']**2
-            b = FACTOR * self.dna.genes_values['sensorial']**2
+            r = FACTOR * self.dna.gene_values['morphology']**2
+            g = FACTOR * self.dna.gene_values['physiology']**2
+            b = FACTOR * self.dna.gene_values['sensorial']**2
+        elif mode == 'specie':
+            cmap = plt.get_cmap('tab20')
+            r, g, b = [255*c for c in cmap(self.specie%20)[:3]]
         else: # default
             r, g, b = 0, 255, 255
 
