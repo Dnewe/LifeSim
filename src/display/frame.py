@@ -12,16 +12,18 @@ class Frame():
         self.cam_y = cam_y
         self.array = np.ndarray((w, h, 3), dtype=np.uint8, buffer=shm.buf)
         self.array[:] = 0
+        self.factor = None
         
     def draw(self, world: World):
+        if self.factor is None:
+            self.factor = 50 / world.food_map.biome_arr.max()
         # window view
         x0, y0 = self.cam_x.value, self.cam_y.value
         x1, y1 = x0 + self.w, y0 + self.h
         
         # biomes
         visible_biome = world.food_map.biome_arr[x0:x1, y0:y1]
-        factor = 100 / world.food_map.biome_arr.max()
-        self.array[:] = visible_biome[..., None] * factor
+        self.array[:] = visible_biome[..., None] * self.factor
         
         # foods
         visible_food = world.food_map.food_arr[x0:x1, y0:y1]

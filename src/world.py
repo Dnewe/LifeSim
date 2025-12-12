@@ -5,37 +5,53 @@ import utils.pos_utils as posUtils
 from foodMap import FoodMap
 from geneticContext import GeneticContext
 from agent.brain import Brain
+import math
 
 
 class World():
     width:int
     height:int
     agents:List[Agent]
-
-    def __init__(self, world_config, agent_config) -> None:
-        self.world_config = world_config
+    
+    @classmethod
+    def from_config(cls, world_config, agent_config):
+        return cls(world_config['width'], 
+                   world_config['height'], 
+                   world_config['grid_cell_size'], 
+                   world_config['n_agent'], 
+                   world_config['speciation_cutoff'],
+                   world_config, #world_config['biome'],
+                   agent_config,
+                   )
+    
+    def __init__(self, w, h, cell_size, n_agents, speciation_cutoff, biome_config, agent_config) -> None:
+        self.width = w
+        self.height = h
         self.agent_config = agent_config
-        self.width = world_config['width']
-        self.height = world_config['height']
-        posUtils.init(self.width, self.height)
-        # food
-        self.food_map = FoodMap(self.width, self.height, base_energy= world_config['food_energy'],
-                                base_size= world_config['food_size'], 
-                                rate_per_pixel= world_config['food_spawn_rate_per_pixel'])
-        self.food_map.generate_biomes()
-        self.food_map.step(world_config['food_initial_n_step'])
-        # genetic context
-        self.genetic_context = GeneticContext()
-        # agents
+        self.food_map = FoodMap(self.width, self.height, base_energy= biome_config['food_energy'],
+                                base_size= biome_config['food_size'], 
+                                rate_per_pixel= biome_config['food_spawn_rate_per_pixel'])
+        self.food_update_step_freq = biome_config['food_update_step_freq']
+        self.food_map.step(biome_config['food_initial_n_step'])
+        self.genetic_context = GeneticContext(speciation_cutoff)
         self.agents = []
-        # metrics
+        self._init_grid(cell_size)
+        self._init_counters()
+        self._init_agents(n_agent=n_agents)
+        
+    def _init_grid(self, cell_size):
+        self.cell_size = cell_size
+        self.grid_w = posUtils.GRID_W
+        self.grid_h = posUtils.GRID_H
+        self.grid = [[[] for _ in range(self.grid_h)] for _ in range(self.grid_w)]
+        
+    def _init_counters(self):
         self.step_count = 0
         self.n_agents = 0
         self.n_births = 0
-        self.n_deaths = 0
-        self.create(n_agent=world_config['n_agent'])
+        self.n_deaths_per_type = {"age": 0, "starvation": 0, "killed": 0}
 
-    def create(self, n_agent=10):
+    def _init_agents(self, n_agent=10):
         for _ in range(n_agent):
             agent = Agent.from_config(self.agent_config)
             self.add_agent(agent)
@@ -43,12 +59,17 @@ class World():
     def add_agent(self, agent:Agent):
         self.n_agents += 1
         self.n_births += 1
+        cx, cy = posUtils.grid_pos(agent.get_pos())
+        self.grid[cx][cy].append(agent)
         self.agents.append(agent)
+        agent.cell_x = cx
+        agent.cell_y = cy
 
     def delete_agent(self, agent:Agent):
         self.n_agents -= 1
-        self.n_deaths += 1
+        self.n_deaths_per_type[agent.death_reason] += 1
         self.agents.remove(agent)
+        self.grid[agent.cell_x][agent.cell_y].remove(agent)
     
     def add_food(self, pos=None, energy=None):
         energy = self.food_map.base_energy if energy is None else energy
@@ -68,15 +89,27 @@ class World():
         return self.food_map.get_nearest_food(pos, radius)
     
     def get_nearest_agent(self, from_agent: Agent, radius: int, cond=None) -> Tuple[Agent|None, float]:
-        # TODO add condition for nearest agent (ie ready_to_mate or attackable)
         if len(self.agents) <= 1:
             return None, 0
-        neareast = min(
-            ((posUtils.distance(from_agent.get_pos(), agt.get_pos()), agt) for agt in self.agents if agt != from_agent),
-            key=lambda x: x[0]
-        )
-        dist, agent = neareast
-        return (agent, dist) if dist <= radius else (None, 0)
+        closest = None
+        closest_dist = float("inf")
+        
+        cx, cy = posUtils.grid_pos(from_agent.get_pos())
+        cells_offset = math.ceil(radius / self.cell_size)
+        for dx in range(-cells_offset, cells_offset+1):
+            for dy in range(-cells_offset, cells_offset+1):
+                nx = cx + dx
+                ny = cy + dy
+                if 0 <= nx < self.grid_w and 0 <= ny < self.grid_h:
+                    for other_agent in self.grid[nx][ny]:
+                        if other_agent is from_agent:
+                            continue
+                        dist = posUtils.distance(from_agent.get_pos(), other_agent.get_pos())
+                        if dist < closest_dist:
+                            closest = other_agent
+                            closest_dist = dist
+                        
+        return (closest, closest_dist) if closest_dist <= radius else (None, 0)
     
     def update_agents(self):
         for agt in self.agents[:]:
@@ -88,13 +121,13 @@ class World():
             self.delete_agent(agt)  
             
     def update_food(self): 
-        if self.step_count % self.world_config['food_update_step_freq'] == 0 :
+        if self.step_count % self.food_update_step_freq == 0 :
             self.food_map.step()
             
     def update_genetic_context(self):
-        self.genetic_context.update_stats([a.dna for a in self.agents])
-        if self.step_count %50 == 0:
+        if self.step_count %200 == 0:
             self.genetic_context.compute_species(self.agents)
+        self.genetic_context.update_stats(self.agents)
 
     def step(self):
         self.step_count += 1

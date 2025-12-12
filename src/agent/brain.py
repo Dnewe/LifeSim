@@ -35,16 +35,14 @@ class Brain():
         for k, v in context.items():
             setattr(self, k, v)
     
-    def update(self, death_reason):
-        pass
-    
 
 class ConditionalBrain(Brain):
     def __init__(self) -> None:
         self.type = 'conditional'
         self.flee_distance = 20
         self.agressivity_threshold = 1.5
-        self.starve_threshold_ratio = 0.8
+        self.energy_to_mate_threshold_ratio = 1.1
+        self.starve_threshold_ratio = 0.9
         self.context = {}
         
     def sense(self, agent: 'Agent', world: 'World'):
@@ -81,5 +79,6 @@ class ConditionalBrain(Brain):
         can_eat = self.context['near_food'] is not None
         if  can_eat and self.context["energy"] < self.context["self_dna"].max_energy * self.starve_threshold_ratio:
             return EatGoal(food_pos = self.context['near_food'], food_dist = self.context['near_food_dist']) 
+        # follow
         # wander
-        return WanderGoal()
+        return WanderGoal() 

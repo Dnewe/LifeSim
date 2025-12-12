@@ -5,11 +5,22 @@ Pos = Tuple[int, int]
 
 W = 0
 H = 0
+GRID_W = 0
+GRID_H = 0
+CELL_SIZE = 0
 
-def init(w,h):
-    global H,W
+def init(w:int ,h:int, cell_size:int):
+    global H,W,GRID_W,GRID_H,CELL_SIZE
     H= h
     W= w
+    GRID_W = w // cell_size +1
+    GRID_H = h // cell_size +1
+    CELL_SIZE = cell_size
+
+
+def grid_pos(pos:Pos) -> Pos:
+    x, y = pos
+    return x // CELL_SIZE,  y // CELL_SIZE
     
 
 def clip_pos(pos) -> Pos:

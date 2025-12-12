@@ -7,6 +7,10 @@ from noise import snoise2
 
 
 class FoodMap():
+    
+    @classmethod
+    def from_config(cls, config, w, h):
+        pass
 
     def __init__(self, w, h, base_color=[255,0,0], base_energy=100, base_size=3, rate_per_pixel = 1e-5) -> None:
         self.base_color = base_color
@@ -17,6 +21,7 @@ class FoodMap():
         self.height = h
         self.biome_arr = np.zeros((w, h), dtype=np.float32)
         self.food_arr = np.zeros((w, h), dtype=np.int32)
+        self.generate_biomes()
 
     def generate_biomes(self, scale= 0.0005, octaves= 2, exponent=3):
         x, y = np.meshgrid(
@@ -34,8 +39,8 @@ class FoodMap():
         rand = np.random.random(self.biome_arr.shape)
         spawn = (rand < factor* self.biome_arr)
         energy = np.zeros_like(self.biome_arr, dtype=np.float32)
-        np.divide(0.01, self.biome_arr, out=energy, where=self.biome_arr > 0)
-        self.food_arr += spawn * self.base_energy # energy.astype(np.int32)
+        np.divide(self.base_energy, np.sqrt(self.biome_arr), out=energy, where=self.biome_arr > 0)
+        self.food_arr += spawn * energy.astype(np.int32)
 
 
     def add_food(self, pos: Pos, energy):

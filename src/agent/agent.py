@@ -1,26 +1,31 @@
 import utils.pos_utils as posUtils
 from agent.dna import DNA
-from agent.goal import Goal, IdleGoal
 from typing import TYPE_CHECKING, Self
 if TYPE_CHECKING:
     from world import World
-from agent.goal import *
+from agent.goal import MATING_IDLE_TIME, IdleGoal, Goal
+import numpy as np
 from agent.brain import Brain
 import matplotlib.pyplot as plt
 
 
 class Agent():
-    id:int
+    # pos
     x:float
     y:float
+    cell_x:int
+    cell_y:int
+    # attributes
     alive:bool
     health: float
-    goal:'Goal'
+    energy:float
     generation:int
     specie: int
     age:int
+    # actions
     ready_to_mate:bool
-    energy:float
+    goal:Goal
+    idle_time: int
     wander_pos:posUtils.Pos|None
    
     
@@ -29,7 +34,9 @@ class Agent():
         dna = DNA.from_config(config['dna'])
         dna.mutate(config['initial_mutation_scale'])
         brain = Brain.from_config(config['brain'])
-        return cls(dna, brain, pos=posUtils.random_pos(), gen=0)
+        energy = dna.max_energy*0.8
+        rdm_age = np.random.randint(0, int(dna.lifespan*0.5))
+        return cls(dna, brain, pos=posUtils.random_pos(), gen=0, energy=energy, age=rdm_age)
 
     @classmethod
     def from_parents(cls, agent1:Self, agent2:Self, mutate = True):
@@ -42,23 +49,23 @@ class Agent():
         # create Agent
         pos = posUtils.midpoint(agent1.get_pos(), agent2.get_pos())
         gen = max(agent1.generation, agent2.generation)+1
-        return cls(dna, brain, pos, gen)
+        energy = agent1.dna.energy_to_mate + agent2.dna.energy_to_mate
+        return cls(dna, brain, pos, gen, energy=energy)
 
 
-    def __init__(self, dna:DNA, brain:'Brain', pos: posUtils.Pos, gen:int) -> None:
+    def __init__(self, dna:DNA, brain:'Brain', pos: posUtils.Pos, gen:int, energy:float, age:float=0) -> None:
         self.x, self.y = pos
         self.brain = brain
         self.dna = dna
         self.generation = gen
-        self._init_vars()
+        self._init_vars(energy, age)
 
-    def _init_vars(self):
-        self.id = 0
-        self.age = 0
+    def _init_vars(self, energy, age):
+        self.age = age
         self.specie = 0
         self.health = self.dna.max_health
         self.alive = True
-        self.energy = self.dna.max_energy * 0.75
+        self.energy = min(self.dna.max_energy, energy)
         self.goal = IdleGoal()
         self.wander_pos = None
         self.idle_time = 25
@@ -69,7 +76,7 @@ class Agent():
         self.sense(world)
         self.decide()
         self.act(world)
-        self.update()
+        self.update(world)
 
     def sense(self, world: 'World'):
         self.brain.sense(self, world)
@@ -80,9 +87,10 @@ class Agent():
     def act(self, world):
         self.goal.exec(self, world)
 
-    def update(self):
+    def update(self, world: 'World'):
         # alive / dead
         if self.energy <= 0 or self.age >= self.dna.lifespan or self.health <= 0:
+            print(f'died at: lifespan-age={int(self.dna.lifespan - self.age)}, energy={int(self.energy)}, health={int(self.health)}')
             self.die()
         # attributes
         self.energy -= self.goal.cost
@@ -92,10 +100,18 @@ class Agent():
         self.idle_time = max(0, self.idle_time-1)
         self.mating_cooldown = max(0, self.mating_cooldown-1)
         # reproduction
-        if self.energy >= self.dna.energy_to_mate and self.age >= self.dna.age_to_mate and self.mating_cooldown==0:
+        if self.energy >= self.dna.energy_to_mate and self.age >= self.dna.maturity_age and self.mating_cooldown==0:
             self.ready_to_mate = True
         elif self.energy < self.dna.energy_to_mate:
             self.ready_to_mate = False
+        # update cells
+        new_cx, new_cy = posUtils.grid_pos(self.get_pos())
+        if new_cx == self.cell_x and new_cy == self.cell_y:
+            return
+        world.grid[self.cell_x][self.cell_y].remove(self)
+        self.cell_x = new_cx
+        self.cell_y = new_cy
+        world.grid[self.cell_x][self.cell_y].append(self)
             
     def mate(self):
         """
@@ -104,9 +120,11 @@ class Agent():
         """
         self.ready_to_mate = False
         self.mating_cooldown = self.dna.mating_cooldown
+        self.idle_time = MATING_IDLE_TIME
         self.energy -= self.dna.energy_to_mate
 
-    def die(self):
+    def die(self):   
+        self.death_reason = "starvation" if self.energy <= 0 else "killed" if self.health <= 0 else "age"
         self.alive = False
         
     def walk(self, dest_pos, speed_factor=1.) -> bool:

@@ -39,6 +39,13 @@ class WanderGoal(Goal):
             agent.idle_time = WANDERING_IDLE_TIME
         SENSE_COST_FACTOR = 0.5
         self.cost = agent.dna.step_cost * WANDER_SPEED_FACTOR + agent.dna.sense_cost * SENSE_COST_FACTOR
+        
+
+class FollowGoal(Goal):
+    def exec(self, agent: 'Agent', world:'World'):
+        agent.walk(self.kwargs['partner'].get_pos())
+        SENSE_COST_FACTOR = 0.5
+        self.cost = agent.dna.step_cost + agent.dna.sense_cost 
 
 
 class EatGoal(Goal):
@@ -88,7 +95,7 @@ class FleeGoal(Goal):
 
 class AttackGoal(Goal):
     """
-    Attack based on color difference
+    Attack based on dna distance
     """
     def exec(self, agent: 'Agent', world: 'World'):
         if self.kwargs['target_dist'] < agent.dna.size + self.kwargs['target'].dna.size:

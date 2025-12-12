@@ -1,6 +1,6 @@
 
 
-initial_mutation_scale: 2.
+initial_mutation_scale: 5.
 
 ### Brain
 brain:
@@ -14,33 +14,34 @@ dna:
   merge_mode: 'rdm_choice'  # 'mean' / 'rdm_choice'
   genes: 
     morphology: {type: 'continuous', value: 1., min: 0.00001, max: None, mutable: True, mutation_factor: 1.}
-    physiology: {type: 'continuous', value: 1., min: 0.00001, max: None, mutable: True, mutation_factor: 0.5}
+    physiology: {type: 'continuous', value: 1., min: 0.00001, max: None, mutable: True, mutation_factor: 1.0}
     sensorial: {type: 'continuous', value: 1., min: 0.00001, max: None, mutable: True, mutation_factor: 1.}
     hostilness: {type: 'continuous', value: 1., min: 0.00001, max: None, mutable: True, mutation_factor: 1.}
     #sex: {type: 'discrete', value: 'random', domain: ['male', 'female'], weights: [1, 1], mutable: True, mutation_factor: 1.,}
   attributes:
     # physical
-    size:  {min: 1, max: None, factor: 5, expr: "morphology**0.5"}
-    speed: {min: 0.01, max: None, factor: 0.5, expr: "physiology**0.5 / morphology**0.5"}
+    size:  {min: 1, max: None, factor: 3, expr: "morphology**0.5"}
+    speed: {min: 0.01, max: None, factor: 0.4, expr: "physiology**0.5 / morphology**0.5"}
     # behavioral
-    agressivity: {min: 0, max: None, factor: 1.0, expr: "hostilness"}
-    partner_dna_distance: {min: 0, max: None, factor: 5, expr: "1 / (physiology**0.25 * hostilness**0.25)"}
+    agressivity: {min: 0, max: None, factor: 1.0, expr: "hostilness**0.5"}
+    social: {min: 0, max: None, factor: 1.0, expr: "1 / hostilness"} # TODO
+    partner_dna_distance: {min: 0, max: None, factor: 5, expr: "1 / (hostilness**0.5)"}
     # physiological (attack & defense)
-    max_health: {min: 1, max: None, factor: 10, expr: "morphology * physiology**0.25 / hostilness**0.5"}
-    regeneration: {min: 0, max: 1, factor: 0.01, expr: "physiology**0.25"}
-    damage: {min: 0, max: None, factor: 2, expr: "morphology**0.75 * physiology**0.5 * hostilness**0.25"}
+    max_health: {min: 1, max: None, factor: 10, expr: "morphology * physiology**0.5 / hostilness**0.5"}
+    regeneration: {min: 0, max: 1, factor: 0.01, expr: "physiology**0.5"}
+    damage: {min: 0, max: None, factor: 2, expr: "morphology**0.75 * physiology**0.5"}
     # physiological (energy & mating)
     lifespan: {min: 1, max: None, factor: 5000, expr: "morphology**0.5 * physiology**0.75"} # changed from  morphology**0.25 * physiology**0.75
-    max_energy: {min: 1, max: None, factor: 2500, expr: "morphology * physiology**0.5"}
-    energy_to_mate: {min: 1, max: None, factor: 750, expr: "morphology**0.5 * physiology**0.75"}
-    age_to_mate: {min: 1, max: None, factor: 1000, expr: "morphology**0.5 / physiology**0.25"}
+    max_energy: {min: 1, max: None, factor: 1000, expr: "morphology * physiology**0.5"}
+    energy_to_mate: {min: 1, max: None, factor: 600, expr: "morphology**0.5 * physiology**0.75"}
+    maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.5 / physiology**0.25"}
     mating_cooldown: {min: 1, max: None, factor: 500, expr: "morphology**0.5 / physiology**0.25"}
     # sensory
-    vision_range: {min: 1, max: None, factor: 64, expr: "sensorial**0.5 / morphology**0.25"}
+    vision_range: {min: 1, max: None, factor: 100, expr: "sensorial**0.5 / morphology**0.25"}
     # energy costs
-    step_cost: {min: 1, max: None, factor: 1., expr: "morphology**0.5 * physiology**0.5"}
-    sense_cost: {min: 1, max: None, factor: 1, expr: "sensorial**0.5 / physiology**0.5"}
-    idle_cost: {min: 1, max: None, factor: 0.1, expr: "morphology**0.75 / physiology"}
+    step_cost: {min: 0.0001, max: None, factor: 0.2, expr: "morphology**0.25 * physiology**0.5"}
+    sense_cost: {min: 0.0001, max: None, factor: 0.2, expr: "sensorial**0.5 / physiology**0.5"}
+    idle_cost: {min: 0.0001, max: None, factor: 0.01, expr: "morphology**0.75 / physiology"}
 
     
       

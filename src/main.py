@@ -43,8 +43,9 @@ if __name__=="__main__":
     sim_window_proc.start()
 
     ### Display Metrics process
-    metrics = Metrics(step_freq=metrics_config['update_step_freq'])
-    metrics_window = MetricsWindow(metrics.queue, event_close, time_freq= metrics_config['window_update_time_freq'])
+    genes = list(agent_config['dna']['genes'].keys())
+    metrics = Metrics(genes, step_freq=metrics_config['update_step_freq'])
+    metrics_window = MetricsWindow(genes, metrics.queue, event_close, time_freq= metrics_config['window_update_time_freq'])
     metrics_window_proc = Process(
         target = metrics_window.run
     )
@@ -52,7 +53,8 @@ if __name__=="__main__":
 
 
     ### Simulation
-    world = World(world_config, agent_config)
+    posUtils.init(world_config['width'], world_config['height'], world_config['grid_cell_size'])
+    world = World.from_config(world_config, agent_config)
 
     ### Frame
     frame = Frame(win_w, win_h, cam_x, cam_y, shm)

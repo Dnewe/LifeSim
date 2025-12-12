@@ -31,7 +31,7 @@ class DNA():
     lifespan: float
     max_energy: float
     energy_to_mate: float
-    age_to_mate: float
+    maturity_age: float
     # sensory
     vision_range: float
     # energy costs

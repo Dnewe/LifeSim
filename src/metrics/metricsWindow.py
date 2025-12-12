@@ -3,19 +3,35 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from scipy.cluster.hierarchy import dendrogram
 import tkinter as tk
 from queue import Empty
+import numpy as np
 
 sns.set_theme()
 
 
+SMALL_SIZE = 6
+MEDIUM_SIZE = 8
+BIGGER_SIZE = 12
+
+plt.rc('font', size=SMALL_SIZE)
+plt.rc('axes', titlesize=SMALL_SIZE)    
+plt.rc('axes', labelsize=MEDIUM_SIZE)   
+plt.rc('xtick', labelsize=SMALL_SIZE)   
+plt.rc('ytick', labelsize=SMALL_SIZE)   
+plt.rc('legend', fontsize=MEDIUM_SIZE)    
+plt.rc('figure', titlesize=BIGGER_SIZE) 
+
+
 class MetricsWindow():
 
-    def __init__(self, queue, event_close, time_freq = 1000) -> None:
+    def __init__(self, genes, queue, event_close, time_freq = 1000) -> None:
+        self.genes = genes
+        self.n_genes = len(genes)
         self.queue = queue
         self.event_close = event_close
         self.time_freq = time_freq
-
         self.labels = []
 
     def run(self):
@@ -26,68 +42,147 @@ class MetricsWindow():
         # === Top info bar ===
         top = tk.Frame(self.root)
         top.pack(side='top', fill='x', padx=6, pady=6)
-
         self.step_label = tk.Label(top, text="STEP: 0", font=("Arial", 16))
         self.step_label.pack(side="left", padx=(0, 12))
         self.step_per_s_label = tk.Label(top, text="STEP PER S: 0", font=("Arial", 16))
         self.step_per_s_label.pack(side="left", padx=(0, 12))
 
-        # === Container for plots ===
-        plot_frame = tk.Frame(self.root)
-        plot_frame.pack(side="top", fill="both", expand=True)
+        # === Main horizontal container ===
+        main = tk.Frame(self.root)
+        main.pack(side="top", fill="both", expand=True)
         
-        # === Small subfigs (3x3) ===
-        self.subfig, self.subaxs = plt.subplots(3, 4, figsize=(6, 6))
-        self.sub_canvas = FigureCanvasTkAgg(self.subfig, master=plot_frame)
-        self.sub_canvas.get_tk_widget().pack(side="left", fill="both", expand=False)
-
-        # === Big scatter figure ===
-        self.bigfig = plt.figure(figsize=(6, 6))
-        self.bigax = self.bigfig.add_subplot(111)
-        self.big_canvas = FigureCanvasTkAgg(self.bigfig, master=plot_frame)
-        self.big_canvas.get_tk_widget().pack(side="left", fill="both", expand=True)
-
+        # == Left column ==
+        left = tk.Frame(main)
+        left.pack(side="left", fill="y", expand=False, padx=4, pady=4)
+        # General stats plots
+        tk.Label(left, text="General Stats", font=("Arial", 14, "bold")).pack()
+        self.left_fig1, self.left_axs1 = plt.subplots(1, 3, figsize=(6, 2))
+        self.left_canvas1 = FigureCanvasTkAgg(self.left_fig1, master=left)
+        self.left_canvas1.get_tk_widget().pack(fill="both", expand=False)
+        # Species plot button
+        tk.Label(left, text="Species", font=("Arial", 14, "bold")).pack()
+        self.make_radio_selector(left, "species_plot_type", ['PCA scatter', 'dendrogram'], default= 'PCA scatter')
+        # Species plot
+        self.left_fig2 = plt.figure(figsize=(6, 6))
+        self.left_ax2 = self.left_fig2.add_subplot(111)
+        self.left_canvas2 = FigureCanvasTkAgg(self.left_fig2, master=left)
+        self.left_canvas2.get_tk_widget().pack(fill="both", expand=True)
+        
+        # == Middle column ==
+        mid = tk.Frame(main)
+        mid.pack(side="left", fill="both", expand=True, padx=4, pady=4)
+        # Genes distribution plots
+        tk.Label(mid, text="Genes", font=("Arial", 14, "bold")).pack(pady=(10, 0))
+        self.mid_fig1, self.mid_axs1 = plt.subplots(2, self.n_genes, figsize=(6, 4))
+        self.mid_canvas1 = FigureCanvasTkAgg(self.mid_fig1, master=mid)
+        self.mid_canvas1.get_tk_widget().pack(fill="both", expand=False)
+        # Brain distribution plots
+        tk.Label(mid, text="Brain", font=("Arial", 14, "bold")).pack(pady=(10, 0))
+        self.mid_fig2, self.mid_axs2 = plt.subplots(2, self.n_genes, figsize=(6, 4))
+        self.mid_canvas2 = FigureCanvasTkAgg(self.mid_fig2, master=mid)
+        self.mid_canvas2.get_tk_widget().pack(fill="both", expand=False)
+        
+        # == Right column ==
+        right = tk.Frame(main)
+        right.pack(side="left", fill="y", expand=False, padx=4, pady=4)
+        # button
+        tk.Label(right, text="Specie details", font=("Arial", 14, "bold")).pack()
+        self.right_button = tk.Button(right, text="(button)")
+        self.right_button.pack(pady=6)
+        # infos
+        self.right_label = tk.Label(right, text="(some info here)")
+        self.right_label.pack()
+        # plots
+        tk.Label(right, text="Small Stats", font=("Arial", 12, "bold")).pack(pady=(10, 0))
+        self.right_fig, self.right_axs = plt.subplots(1, 3, figsize=(6, 2))
+        self.right_canvas = FigureCanvasTkAgg(self.right_fig, master=right)
+        self.right_canvas.get_tk_widget().pack(fill="both", expand=False)
+        
         self.update()
         self.root.mainloop()
 
     def update(self):
-
         try:
             while True:
                 metrics = self.queue.get_nowait()
                 self.update_plots(metrics)
-                self.update_labels(metrics)        
-                
+                self.update_labels(metrics)                  
         except Empty:
             pass
         
-        self.sub_canvas.draw_idle()
-        self.big_canvas.draw_idle()
+        self.left_canvas1.draw_idle()
+        self.left_canvas2.draw_idle()
+        self.mid_canvas1.draw_idle()
+        self.mid_canvas2.draw_idle()
+        self.right_canvas.draw_idle()
         self.root.after(self.time_freq, self.update)
-
+        
+    def clear_subaxs(self, subaxs):
+        for ax in subaxs.ravel():
+            ax.clear()
+        
     def update_plots(self, metrics):
-        # Subfigs
-        for ax in self.subaxs.ravel():
-                    ax.clear()
-        self.subaxs[0, 0].plot(metrics["population"])
-        self.subaxs[0, 1].plot(metrics["births"])
-        self.subaxs[0, 2].plot(metrics["deaths"])
-        self.subaxs[1, 0].plot(metrics["mean_morphology"])
-        self.subaxs[1, 1].plot(metrics["mean_physiology"])
-        self.subaxs[1, 2].plot(metrics["mean_sensorial"])
-        self.subaxs[1, 3].plot(metrics["mean_hostilness"])
-        self.subaxs[2, 0].plot(metrics["cv_morphology"])
-        self.subaxs[2, 1].plot(metrics["cv_physiology"])
-        self.subaxs[2, 2].plot(metrics["cv_sensorial"])
-        self.subaxs[2, 3].plot(metrics["cv_hostilness"])
-        # Bigfig
-        points, labels = metrics["species_scatter_points_and_labels"]
-        self.bigax.clear()
-        self.bigax.scatter(points[:,0], points[:,1], c=labels, cmap="tab20")
+        # == Left ==
+        
+        # general stats
+        self.clear_subaxs(self.left_axs1)
+            # population
+        self.left_axs1[0].set_title('Population')
+        self.left_axs1[0].plot(metrics["population"])
+            # births
+        self.left_axs1[1].set_title('Births')
+        self.left_axs1[1].plot(metrics["births"])
+            # deaths
+        self.left_axs1[2].set_title('Deaths')
+        for reason in metrics["deaths"].keys():
+            self.left_axs1[2].plot(metrics["deaths"][reason], label=reason)
+        self.left_axs1[2].legend()
+        
+        # species plot
+        self.left_ax2.clear()
+        species_plot_type = getattr(self, 'species_plot_type').get()
+        if species_plot_type == 'PCA scatter':
+            points, labels = metrics["species_scatter_data_and_labels"]
+            self.left_ax2.set_title('Species scatterplot')
+            self.left_ax2.scatter(points[:,0], points[:,1], c=labels, cmap="tab20")
+        elif species_plot_type == 'dendrogram':
+            z, cutoff = metrics["species_dendrogram_data_and_cutoff"]
+            self.left_ax2.set_title('Species dendrogram')
+            self.left_ax2.set_xlabel("Agents")
+            self.left_ax2.set_ylabel("Distance")
+            dendrogram(z, ax=self.left_ax2, color_threshold=cutoff)
+            self.left_ax2.axhline(cutoff, linestyle="--", color="gray", linewidth=1)
+            
+
+        
+        # == Middle ==
+        # genes
+        self.clear_subaxs(self.mid_axs1)
+        for i, gene in enumerate(self.genes):
+            self.mid_axs1[0, i].set_title(f'{gene} mean')
+            self.mid_axs1[1, i].set_title(f'{gene} CV')
+            self.mid_axs1[0, i].plot(metrics[f"mean_{gene}"]) 
+            self.mid_axs1[1, i].plot(metrics[f"cv_{gene}"]) 
+        # brain 
+        self.clear_subaxs(self.mid_axs2)
+        for i, gene in []:
+            self.mid_axs2[0, i].set_title(f'{gene} mean')
+            self.mid_axs2[1, i].set_title(f'{gene} CV')
+            self.mid_axs2[0, i].plot(metrics[f"mean_{gene}"]) 
+            self.mid_axs2[1, i].plot(metrics[f"cv_{gene}"]) 
+        
+        # == Right ==
+        
 
     def update_labels(self, metrics):
         self.step_label.config(text=f"STEP: {metrics.get("n_step", 0)}")
         self.step_per_s_label.config(text=f"STEP_PER_SEC: {metrics.get("step_per_s", 0):.1f}")
+        
+    def make_radio_selector(self, parent, attrname, values, default):
+        setattr(self, attrname, tk.StringVar(value=default))
+        for v in values:
+            tk.Radiobutton(parent, text=str(v), value=v,
+                        variable=getattr(self, attrname)).pack(anchor="w")
 
     def on_close(self):
         print("Metrics window closed.")
