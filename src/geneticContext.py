@@ -13,8 +13,8 @@ class GeneticContext():
         # genes
         self.genes_mean = {}
         self.genes_std = {}
-        self.genes_mean_per_specie = {}
-        self.genes_std_per_specie = {}
+        self.species_genes_mean = {}
+        self.species_genes_std = {}
         # species
         self.speciation_cutoff = speciation_cutoff
         self.distance_matrix = np.zeros((2, 2))
@@ -70,19 +70,19 @@ class GeneticContext():
             self.genes_mean[k] = mean
             self.genes_std[k] = std
             # per specie
-            if k not in self.genes_mean_per_specie:
-                self.genes_mean_per_specie[k] = [0.0] * self.n_species
-                self.genes_std_per_specie[k] = [0.0] * self.n_species
-                for s in range(self.n_species):
-                    if count_specie[s] == 0: # if empty specie
-                        self.genes_mean_per_specie[k][s] = 0.0
-                        self.genes_std_per_specie[k][s]  = 0.0
-                        continue
-                    m = sums_specie[k][s] / count_specie[s]
-                    v = (sq_sums_specie[k][s] / count_specie[s]) - m*m
-                    sd = (v ** 0.5) + 1e-8
-                    self.genes_mean_per_specie[k][s] = m
-                    self.genes_std_per_specie[k][s]  = sd
+        for s in range(self.n_species):
+            self.species_genes_mean[s] = {}
+            self.species_genes_std[s] = {}
+            for k in sums:
+                if count_specie[s] == 0: # if empty specie
+                    self.species_genes_mean[s][k] = 0.0
+                    self.species_genes_std[s][k]  = 0.0
+                    continue
+                m = sums_specie[k][s] / count_specie[s]
+                v = (sq_sums_specie[k][s] / count_specie[s]) - m*m
+                sd = (v ** 0.5) + 1e-8
+                self.species_genes_mean[s][k] = m
+                self.species_genes_std[s][k]  = sd
             
     def compute_species(self, agents: List['Agent']):
         if len(agents) <2:

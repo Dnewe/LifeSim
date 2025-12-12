@@ -20,14 +20,16 @@ class Metrics():
         self.population = []
         self.births = []
         self.deaths = {}  
-        # genes 
-        self.genes_mean_values = {f"mean_{g}": [] for g in genes}
-        self.genes_cv_values = {f"cv_{g}": [] for g in genes}
         # species
         self.species_scatter_data = np.zeros((2,2))
         self.species_dendrogram_data = None
         self.species_labels = []
         self.n_species = 1
+        # genes 
+        self.genes_mean_list = {f"mean_{g}": [0] for g in genes}
+        self.genes_cv_list = {f"cv_{g}": [0] for g in genes}
+        self.species_genes_mean = {s: [0] for s in range(self.n_species)}
+        self.species_genes_cv = {s: [0] for s in range(self.n_species)}
 
 
     def update(self, world: World):
@@ -45,6 +47,7 @@ class Metrics():
                 self.deaths[type].append(n)
         # species
         self.n_species = world.genetic_context.n_species
+        self.update_species_genes_data(world)
         self.update_species_scatter_data(world)
         self.update_species_dendrogram_data(world)
         # genes
@@ -66,8 +69,10 @@ class Metrics():
             "species_scatter_data_and_labels": (self.species_scatter_data, self.species_labels),
             "species_dendrogram_data_and_cutoff": (self.species_dendrogram_data, self.speciation_cutoff),
             # genes
-            **{**self.genes_mean_values},
-            **{**self.genes_cv_values} # unpack copy of dict
+            **{**self.genes_mean_list},
+            **{**self.genes_cv_list}, # unpack copy of dict
+            "species_genes_mean": self.species_genes_mean,
+            "species_genes_cv": self.species_genes_cv,
         }
     
     def update_frame_per_s(self):
@@ -91,10 +96,21 @@ class Metrics():
         condensed = distance_matrix[np.triu_indices(len(distance_matrix), k=1)]
         self.species_dendrogram_data = linkage(condensed, method='average')
         self.speciation_cutoff = world.genetic_context.speciation_cutoff
+        
+    def update_species_genes_data(self, world: World):
+        self.species_genes_mean = {s: [] for s in range(self.n_species)}
+        self.species_genes_cv = {s: [] for s in range(self.n_species)}
+        for s in range(self.n_species):
+            means_dict = world.genetic_context.species_genes_mean[s]
+            stds_dict = world.genetic_context.species_genes_std[s]
+            means = [means_dict[g] for g in self.genes]
+            cvs = [stds_dict[g] / means_dict[g] for g in self.genes]
+            self.species_genes_mean[s] = means
+            self.species_genes_cv[s] = cvs
     
     def update_genes_metrics(self, world: World):
         means = world.genetic_context.genes_mean
         stds = world.genetic_context.genes_std
         for g in self.genes:
-            self.genes_mean_values[f'mean_{g}'].append(means[g])
-            self.genes_cv_values[f'cv_{g}'].append(stds[g]/means[g])
+            self.genes_mean_list[f'mean_{g}'].append(means[g])
+            self.genes_cv_list[f'cv_{g}'].append(stds[g]/means[g])

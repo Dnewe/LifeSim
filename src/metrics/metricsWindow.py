@@ -93,10 +93,16 @@ class MetricsWindow():
         self.right_label = tk.Label(right, text="(some info here)")
         self.right_label.pack()
         # plots
-        tk.Label(right, text="Small Stats", font=("Arial", 12, "bold")).pack(pady=(10, 0))
-        self.right_fig, self.right_axs = plt.subplots(1, 3, figsize=(6, 2))
-        self.right_canvas = FigureCanvasTkAgg(self.right_fig, master=right)
-        self.right_canvas.get_tk_widget().pack(fill="both", expand=False)
+        # species genesmeans
+        self.right_fig1 = plt.figure(figsize=(6, 3))
+        self.right_ax1 = self.right_fig1.add_subplot(111)
+        self.right_canvas1 = FigureCanvasTkAgg(self.right_fig1, master=right)
+        self.right_canvas1.get_tk_widget().pack(fill="both", expand=True)
+        # species genes cvs
+        self.right_fig2 = plt.figure(figsize=(6, 3))
+        self.right_ax2 = self.right_fig2.add_subplot(111)
+        self.right_canvas2 = FigureCanvasTkAgg(self.right_fig2, master=right)
+        self.right_canvas2.get_tk_widget().pack(fill="both", expand=True)
         
         self.update()
         self.root.mainloop()
@@ -114,7 +120,8 @@ class MetricsWindow():
         self.left_canvas2.draw_idle()
         self.mid_canvas1.draw_idle()
         self.mid_canvas2.draw_idle()
-        self.right_canvas.draw_idle()
+        self.right_canvas1.draw_idle()
+        self.right_canvas2.draw_idle()
         self.root.after(self.time_freq, self.update)
         
     def clear_subaxs(self, subaxs):
@@ -150,6 +157,7 @@ class MetricsWindow():
             self.left_ax2.set_title('Species dendrogram')
             self.left_ax2.set_xlabel("Agents")
             self.left_ax2.set_ylabel("Distance")
+            self.left_ax2.set_ylim(0, cutoff+0.5)
             dendrogram(z, ax=self.left_ax2, color_threshold=cutoff)
             self.left_ax2.axhline(cutoff, linestyle="--", color="gray", linewidth=1)
             
@@ -172,6 +180,36 @@ class MetricsWindow():
             self.mid_axs2[1, i].plot(metrics[f"cv_{gene}"]) 
         
         # == Right ==
+        # species genes mean
+        self.right_ax1.clear()
+        species_genes_mean = metrics["species_genes_mean"]
+        x = np.arange((len(self.genes)))
+        width = 0.75 / (self.n_genes)
+        multiplier = 0
+        for s, means in species_genes_mean.items():
+            offset = width * multiplier
+            rects = self.right_ax1.bar(x + offset, means, width, label=s)
+            self.right_ax1.bar_label(rects, padding=3)
+            multiplier += 1
+        self.right_ax1.set_title('Genes means by species')
+        self.right_ax1.set_xticks(x + width, self.genes)
+        self.right_ax1.set_ylabel('values')
+        self.right_ax1.legend(loc='upper left', ncols=metrics['n_species'])
+        # species genes cv
+        self.right_ax2.clear()
+        species_genes_cv = metrics["species_genes_cv"]
+        x = np.arange((len(self.genes)))
+        width = 0.75 / (self.n_genes)
+        multiplier = 0
+        for s, cvs in species_genes_cv.items():
+            offset = width * multiplier
+            rects = self.right_ax2.bar(x + offset, cvs, width, label=s)
+            self.right_ax2.bar_label(rects, padding=3)
+            multiplier += 1
+        self.right_ax2.set_title('Genes CVs by species')
+        self.right_ax2.set_xticks(x + width, x)
+        self.right_ax2.set_ylabel('values')
+        self.right_ax2.legend(loc='upper left', ncols=metrics['n_species'])
         
 
     def update_labels(self, metrics):
