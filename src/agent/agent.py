@@ -2,7 +2,7 @@ import utils.pos_utils as posUtils
 from agent.dna import DNA
 from typing import TYPE_CHECKING, Self
 if TYPE_CHECKING:
-    from world import World
+    from world.world import World
 from agent.goal import MATING_IDLE_TIME, IdleGoal, Goal
 import numpy as np
 from agent.brain import Brain
@@ -34,7 +34,7 @@ class Agent():
         dna = DNA.from_config(config['dna'])
         dna.mutate(config['initial_mutation_scale'])
         brain = Brain.from_config(config['brain'])
-        energy = dna.max_energy*0.8
+        energy = dna.max_energy*0.75
         rdm_age = np.random.randint(0, int(dna.lifespan*0.5))
         return cls(dna, brain, pos=posUtils.random_pos(), gen=0, energy=energy, age=rdm_age)
 
@@ -66,11 +66,12 @@ class Agent():
         self.health = self.dna.max_health
         self.alive = True
         self.energy = min(self.dna.max_energy, energy)
+        self.satiety = 0
         self.goal = IdleGoal()
         self.wander_pos = None
         self.idle_time = 25
         self.ready_to_mate = False
-        self.mating_cooldown = self.dna.mating_cooldown
+        self.mating_cooldown = self.dna.mating_cooldown - age
 
     def step(self, world):
         self.sense(world)
@@ -88,12 +89,18 @@ class Agent():
         self.goal.exec(self, world)
 
     def update(self, world: 'World'):
+        # clip values
+        self.energy = min(self.energy, self.dna.max_energy)
+        self.satiety = min(self.satiety, self.dna.max_satiety)
         # alive / dead
         if self.energy <= 0 or self.age >= self.dna.lifespan or self.health <= 0:
             print(f'died at: lifespan-age={int(self.dna.lifespan - self.age)}, energy={int(self.energy)}, health={int(self.health)}')
             self.die()
         # attributes
-        self.energy -= self.goal.cost
+        if self.satiety > 0:
+            self.satiety -= self.goal.cost
+        else:
+            self.energy -= self.goal.cost
         self.health = min(self.dna.max_health, self.health + self.dna.regeneration)
         # timer
         self.age += 1
@@ -161,11 +168,6 @@ class Agent():
             r = 0
             g = max(0, min(255, (510 - 20*(self.generation))%511))
             b = max(0, min(255, (0 + 20*(self.generation))%511))
-        elif mode == 'dna_distance':
-            factor = 1. # self.dna.distance_from_default() TODO
-            r = 0
-            g = 255*(1-factor)
-            b = 255*factor
         elif mode == 'gene_values':
             FACTOR = 64
             r = FACTOR * self.dna.gene_values['morphology']**2

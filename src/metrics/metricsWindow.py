@@ -136,6 +136,7 @@ class MetricsWindow():
             # population
         self.left_axs1[0].set_title('Population')
         self.left_axs1[0].plot(metrics["population"])
+        self.left_axs1[0].set_ylim(0)
             # births
         self.left_axs1[1].set_title('Births')
         self.left_axs1[1].plot(metrics["births"])
@@ -157,8 +158,8 @@ class MetricsWindow():
             self.left_ax2.set_title('Species dendrogram')
             self.left_ax2.set_xlabel("Agents")
             self.left_ax2.set_ylabel("Distance")
+            dendrogram(z, ax=self.left_ax2, color_threshold=cutoff, no_labels=True, count_sort=True)
             self.left_ax2.set_ylim(0, cutoff+0.5)
-            dendrogram(z, ax=self.left_ax2, color_threshold=cutoff)
             self.left_ax2.axhline(cutoff, linestyle="--", color="gray", linewidth=1)
             
 
@@ -183,8 +184,8 @@ class MetricsWindow():
         # species genes mean
         self.right_ax1.clear()
         species_genes_mean = metrics["species_genes_mean"]
-        x = np.arange((len(self.genes)))
-        width = 0.75 / (self.n_genes)
+        x = np.arange(self.n_genes)
+        width = 0.75 / (metrics['n_species'])
         multiplier = 0
         for s, means in species_genes_mean.items():
             offset = width * multiplier
@@ -198,8 +199,8 @@ class MetricsWindow():
         # species genes cv
         self.right_ax2.clear()
         species_genes_cv = metrics["species_genes_cv"]
-        x = np.arange((len(self.genes)))
-        width = 0.75 / (self.n_genes)
+        x = np.arange(self.n_genes)
+        width = 0.75 / (metrics['n_species'])
         multiplier = 0
         for s, cvs in species_genes_cv.items():
             offset = width * multiplier
@@ -214,7 +215,7 @@ class MetricsWindow():
 
     def update_labels(self, metrics):
         self.step_label.config(text=f"STEP: {metrics.get("n_step", 0)}")
-        self.step_per_s_label.config(text=f"STEP_PER_SEC: {metrics.get("step_per_s", 0):.1f}")
+        self.step_per_s_label.config(text=f"FPS (cur|avg): {metrics.get("fps_cur", 0):.1f} | {metrics.get("fps_avg", 0):.1f}")
         
     def make_radio_selector(self, parent, attrname, values, default):
         setattr(self, attrname, tk.StringVar(value=default))

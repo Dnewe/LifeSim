@@ -1,21 +1,32 @@
 
-### World
-height: 1500 #1440
-width: 1500 #2560
-grid_cell_size: 50
+### Initial condition
+n_agents: 150
+n_food_spawns: 10
 
-### Biome
-biome:
-
+### Speciation
+speciation_cutoff: 4.0
 
 ### Food
-food_update_step_freq: 100
-food_spawn_rate_per_pixel: 0.00008
-food_energy: 100
-food_size: 1
-food_initial_n_step: 20
+food:
+  spawn_freq: 500
+  spawn_rate: 0.000005
+  energy: 400
+  size: 3
+  color: [250, 200, 0]
 
-### Agent
-n_agent: 70
-speciation_cutoff: 4.0
+### World
+worldgen:
+  # scale
+  height: 2000 #1440
+  width: 3000 #2560
+  grid_cell_size: 60
+  # biomes
+  noise_map: {scale: 0.0003, octaves: 3}
+  biomes: 
+    dense: {spawn_order: 1, spawn_rate: 0.25, food_spawn_rate_factor: 2.0, food_energy_factor: 0.5, color: [0, 90, 0]}
+    normal: {spawn_order: 2, spawn_rate: 0.1, food_spawn_rate_factor: 1.0, food_energy_factor: 1.0, color: [0, 60, 0]}
+    sparse: {spawn_order: 3, spawn_rate: 0.2, food_spawn_rate_factor: 0.25, food_energy_factor: 6.0, color: [0, 30, 0]}
+    void: {spawn_order: 4, spawn_rate: 1., food_spawn_rate_factor: 0., food_energy_factor: 0., color: [0, 0, 0]}
+
+
 

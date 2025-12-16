@@ -3,13 +3,13 @@ import utils.pos_utils as posUtils
 import numpy as np
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from world import World
+    from world.world import World
     from agent.agent import Agent
     
 
 # Idle Times after doing actions
 WANDERING_IDLE_TIME = 10
-EATING_IDLE_TIME = 20
+EATING_IDLE_TIME = 0 #20
 MATING_IDLE_TIME = 50
 ATTACKING_IDLE_TIME = 10
 
@@ -17,6 +17,7 @@ ATTACKING_IDLE_TIME = 10
 class Goal():
     def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs 
+        self.completed = False
 
     def exec(self, agent: 'Agent', world:'World'):
         self.cost = 0
@@ -37,6 +38,7 @@ class WanderGoal(Goal):
         if reached:
             agent.wander_pos = None
             agent.idle_time = WANDERING_IDLE_TIME
+            self.completed = True
         SENSE_COST_FACTOR = 0.5
         self.cost = agent.dna.step_cost * WANDER_SPEED_FACTOR + agent.dna.sense_cost * SENSE_COST_FACTOR
         
@@ -45,25 +47,28 @@ class FollowGoal(Goal):
     def exec(self, agent: 'Agent', world:'World'):
         agent.walk(self.kwargs['partner'].get_pos())
         SENSE_COST_FACTOR = 0.5
-        self.cost = agent.dna.step_cost + agent.dna.sense_cost 
+        self.cost = agent.dna.step_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
 
 
 class EatGoal(Goal):
     def exec(self, agent: 'Agent', world:'World'):
-        if self.kwargs['food_dist'] < agent.dna.size:
+        if self.kwargs['food_dist'] < agent.dna.size + world.foodmap.get_food_size(self.kwargs['food_pos']):
             self._eat(self.kwargs['food_pos'], agent, world)
             agent.idle_time = EATING_IDLE_TIME
-            SENSE_COST_FACTOR = 2.
-            self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR
+            IDLE_COST_FACTOR = 1
+            self.cost = agent.dna.idle_cost * IDLE_COST_FACTOR
+            if world.foodmap.get_food_energy(self.kwargs['food_pos']) <=0 or agent.energy >= agent.dna.max_energy:
+                self.completed = True
         else:
             agent.walk(self.kwargs['food_pos'])
             SENSE_COST_FACTOR = 1.
             self.cost = agent.dna.step_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
 
-    def _eat(self, food_pos, agent, world):
-        agent.energy += world.get_food_energy(food_pos)
-        world.delete_food(food_pos)
-    
+    def _eat(self, food_pos, agent: 'Agent', world:'World'):
+        energy = agent.dna.metabolism_efficiency * world.take_food_energy(food_pos)
+        agent.satiety += agent.dna.satiety_gain * energy
+        agent.energy += energy
+        
     
 class MateGoal(Goal):
     def exec(self, agent: 'Agent', world: 'World'):
@@ -71,6 +76,7 @@ class MateGoal(Goal):
             self._mate(agent, self.kwargs['partner'], world)
             SENSE_COST_FACTOR = 10.
             self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR    # mating cost handled by agent.mate()
+            self.completed = True
         else:
             agent.walk(self.kwargs['partner'].get_pos())
             SENSE_COST_FACTOR = 2.
@@ -104,6 +110,7 @@ class AttackGoal(Goal):
             STEP_COST_FACTOR = 3.
             SENSE_COST_FACTOR = 2.
             self.cost = agent.dna.step_cost * STEP_COST_FACTOR + agent.dna.sense_cost * SENSE_COST_FACTOR
+            self.completed = True
         else:
             agent.walk(self.kwargs['target'].get_pos())
             SENSE_COST_FACTOR = 1.

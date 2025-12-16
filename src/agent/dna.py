@@ -21,7 +21,8 @@ class DNA():
     size: float
     speed: float
     # behavioral
-    agressivity: float
+    aggressive: float
+    social: float
     partner_dna_distance: float
     # physiological (attack & defense)
     damage: float
@@ -32,6 +33,10 @@ class DNA():
     max_energy: float
     energy_to_mate: float
     maturity_age: float
+    # alimentation
+    max_satiety: float
+    satiety_gain: float
+    metabolism_efficiency: float
     # sensory
     vision_range: float
     # energy costs

@@ -12,8 +12,9 @@ path_config_agent: 'H:\Documents\projets\LifeSim\configs\config_agent.yaml'
 window:
   height: 720
   width: 1280
+  max_fps: 30
 
 ### Metrics
 metrics:
-  update_step_freq: 200
-  window_update_time_freq: 1000
+  update_step_freq: 100
+  window_update_time_freq: 500

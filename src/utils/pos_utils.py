@@ -50,15 +50,14 @@ def distance(pos1, pos2) -> int:
     return np.hypot(dx, dy)
 
 
-def square(pos, size, w=None, h=None):
+def square(pos, radius, w=None, h=None):
     w = W if w is None else w
     h = H if h is None else h
     x, y = pos
-    radius = size #(size-1)//2
     x_min = max(0, x-radius)
-    x_max = min(w-1, x_min+2*radius)
+    x_max = min(w, x_min+ 2*radius)
     y_min = max(0, y-radius)
-    y_max = min(h-1, y_min+2*radius)
+    y_max = min(h, y_min+ 2*radius)
     return x_min, x_max, y_min, y_max
 
 

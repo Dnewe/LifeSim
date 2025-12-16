@@ -1,6 +1,6 @@
 from typing import Dict, List
 from multiprocessing import Queue
-from world import World
+from world.world import World
 from sklearn.decomposition import PCA
 from scipy.cluster.hierarchy import linkage
 import numpy as np
@@ -15,7 +15,7 @@ class Metrics():
         self.prev_time = 0
         # sim info
         self.n_step = 0
-        self.step_per_s = 0
+        self.fps_list = []
         # general
         self.population = []
         self.births = []
@@ -47,11 +47,12 @@ class Metrics():
                 self.deaths[type].append(n)
         # species
         self.n_species = world.genetic_context.n_species
-        self.update_species_genes_data(world)
-        self.update_species_scatter_data(world)
-        self.update_species_dendrogram_data(world)
-        # genes
-        self.update_genes_metrics(world)
+        if len(world.agents) > 0:
+            self.update_species_genes_data(world)
+            self.update_species_scatter_data(world)
+            self.update_species_dendrogram_data(world)
+            # genes
+            self.update_genes_metrics(world)
         
         self.queue.put(self.snapshot())
         
@@ -59,7 +60,8 @@ class Metrics():
         return {
             # sim info 
             "n_step": self.n_step,
-            "step_per_s": self.step_per_s,
+            "fps_cur": self.fps_list[-1],
+            "fps_avg": np.mean(self.fps_list),
             # general
             "population": self.population[:],
             "births": self.births[:],
@@ -75,9 +77,12 @@ class Metrics():
             "species_genes_cv": self.species_genes_cv,
         }
     
-    def update_frame_per_s(self):
+    def update_frame_per_s(self, length_running_avg=1000):
         cur_time = time.time_ns()
-        self.step_per_s = self.step_freq * 1e9/(cur_time - self.prev_time)
+        v = self.step_freq * 1e9/(cur_time - self.prev_time + 1e-8)
+        self.fps_list.append(v)
+        if len(self.fps_list) > length_running_avg//self.step_freq:
+            self.fps_list.pop(0)
         self.prev_time = cur_time
 
     def update_species_scatter_data(self, world: World):
@@ -103,8 +108,8 @@ class Metrics():
         for s in range(self.n_species):
             means_dict = world.genetic_context.species_genes_mean[s]
             stds_dict = world.genetic_context.species_genes_std[s]
-            means = [means_dict[g] for g in self.genes]
-            cvs = [stds_dict[g] / means_dict[g] for g in self.genes]
+            means = [means_dict.get(g,0.) for g in self.genes]
+            cvs = [stds_dict.get(g,0.) / means_dict.get(g,1e-8) for g in self.genes]
             self.species_genes_mean[s] = means
             self.species_genes_cv[s] = cvs
     
@@ -112,5 +117,5 @@ class Metrics():
         means = world.genetic_context.genes_mean
         stds = world.genetic_context.genes_std
         for g in self.genes:
-            self.genes_mean_list[f'mean_{g}'].append(means[g])
-            self.genes_cv_list[f'cv_{g}'].append(stds[g]/means[g])
+            self.genes_mean_list[f'mean_{g}'].append(means.get(g, 0))
+            self.genes_cv_list[f'cv_{g}'].append(stds.get(g, 0)/means.get(g, 1e-8))

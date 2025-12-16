@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Dict, List, Tuple
 from agent.agent import Agent
 import numpy as np
 import utils.pos_utils as posUtils
-from foodMap import FoodMap
+from world.biomeMap import BiomeMap
 from geneticContext import GeneticContext
 from agent.brain import Brain
 import math
@@ -15,26 +15,30 @@ class World():
     
     @classmethod
     def from_config(cls, world_config, agent_config):
-        return cls(world_config['width'], 
-                   world_config['height'], 
-                   world_config['grid_cell_size'], 
-                   world_config['n_agent'], 
+        return cls(world_config['worldgen']['width'], 
+                   world_config['worldgen']['height'], 
+                   world_config['worldgen']['grid_cell_size'], 
+                   world_config['n_agents'], 
+                   world_config['n_food_spawns'],
                    world_config['speciation_cutoff'],
-                   world_config, #world_config['biome'],
+                   world_config['worldgen'],
+                   world_config['food'],
                    agent_config,
                    )
     
-    def __init__(self, w, h, cell_size, n_agents, speciation_cutoff, biome_config, agent_config) -> None:
+    def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_cutoff, worlgen_config, food_config, agent_config) -> None:
+        # params
         self.width = w
         self.height = h
         self.agent_config = agent_config
-        self.food_map = FoodMap(self.width, self.height, base_energy= biome_config['food_energy'],
-                                base_size= biome_config['food_size'], 
-                                rate_per_pixel= biome_config['food_spawn_rate_per_pixel'])
-        self.food_update_step_freq = biome_config['food_update_step_freq']
-        self.food_map.step(biome_config['food_initial_n_step'])
+        # foodmap
+        self.foodmap = BiomeMap.from_configs(worlgen_config, food_config)
+        self.foodmap.spawn_food(n_food_spawns)
+        self.food_spawn_freq = food_config['spawn_freq']
+        # agents
         self.genetic_context = GeneticContext(speciation_cutoff)
         self.agents = []
+        # initalization
         self._init_grid(cell_size)
         self._init_counters()
         self._init_agents(n_agent=n_agents)
@@ -71,22 +75,25 @@ class World():
         self.agents.remove(agent)
         self.grid[agent.cell_x][agent.cell_y].remove(agent)
     
-    def add_food(self, pos=None, energy=None):
-        energy = self.food_map.base_energy if energy is None else energy
-        if energy == 0:
+    def add_food(self, pos, energy):
+        if energy<=0:
             return
-        x = pos[0] if pos is not None else np.random.randint(0, self.width)
-        y = pos[1] if pos is not None else np.random.randint(0, self.height)
-        self.food_map.add_food((x, y), energy)
+        self.foodmap.add_food(pos, energy)
     
     def delete_food(self, pos):
-        self.food_map.delete_food(pos)
+        self.foodmap.del_food(pos)
     
-    def get_food_energy(self, pos):
-        return self.food_map.get_food_energy(pos)
+    def take_food_energy(self, pos, amount = 5):
+        energy = self.foodmap.get_food_energy(pos)
+        amount = min(energy, amount)
+        if energy - amount <=0:
+            self.foodmap.del_food(pos)
+        else:
+            self.foodmap.food_arr[pos] = energy - amount
+        return amount
     
     def get_nearest_food(self, pos, radius: int) -> Tuple[posUtils.Pos|None, float]:
-        return self.food_map.get_nearest_food(pos, radius)
+        return self.foodmap.get_nearest_food(pos, radius)
     
     def get_nearest_agent(self, from_agent: Agent, radius: int, cond=None) -> Tuple[Agent|None, float]:
         if len(self.agents) <= 1:
@@ -121,11 +128,11 @@ class World():
             self.delete_agent(agt)  
             
     def update_food(self): 
-        if self.step_count % self.food_update_step_freq == 0 :
-            self.food_map.step()
+        if self.step_count % self.food_spawn_freq == 0 :
+            self.foodmap.spawn_food()
             
     def update_genetic_context(self):
-        if self.step_count %200 == 0:
+        if self.step_count %100 == 0:
             self.genetic_context.compute_species(self.agents)
         self.genetic_context.update_stats(self.agents)
 

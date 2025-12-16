@@ -15,7 +15,7 @@ class FoodMap():
     def __init__(self, w, h, base_color=[255,0,0], base_energy=100, base_size=3, rate_per_pixel = 1e-5) -> None:
         self.base_color = base_color
         self.base_energy = base_energy
-        self.base_size = base_size
+        self.size_factor = base_size*(1/self.base_energy**0.5)
         self.rate_per_pixel = rate_per_pixel
         self.width = w
         self.height = h
@@ -54,7 +54,7 @@ class FoodMap():
     
     def get_food_size(self, pos: Pos):
         energy = self.food_arr[*pos]
-        size = self.base_size*(1/self.base_energy * energy)**0.5
+        size = self.size_factor * energy**0.5
         return int(size)
     
     def get_food_color(self, pos: Pos):

@@ -1,4 +1,4 @@
-from multiprocessing import shared_memory, Event, Process, Value
+from multiprocessing import shared_memory, Event, Process, Value, Queue
 import numpy as np
 import time
 import yaml
@@ -7,9 +7,11 @@ from utils.arguments import *
 from display.simulationWindow import SimulationWindow
 from metrics.metrics import Metrics
 from metrics.metricsWindow import MetricsWindow
-from world import World
+from world.world import World
 from display.frame import Frame
+from optionHandler import ActionHandler
 import utils.pos_utils as posUtils
+
 
 
 if __name__=="__main__":
@@ -24,19 +26,25 @@ if __name__=="__main__":
     window_config = config['window']
     metrics_config = config['metrics']
     win_w, win_h = window_config["width"], window_config["height"]
+    max_fps = window_config['max_fps']
 
-    ### Shared Memory & events
+    ### Shared Memory & events & queue
     shm = shared_memory.SharedMemory(create=True, size=win_w*win_h*3)
     shared_buf_name = shm.name
     cam_x = Value('i', 0)
     cam_y = Value('i', 0)
     event_ready = Event()
     event_close = Event()
+    option_queue = Queue()
+    action_queue = Queue()
+    
+    ### Options
+    actionHandler = ActionHandler(option_queue, action_queue)
 
     ### Display Simulation process
     sim_window = SimulationWindow(win_w, win_h,
-                                  world_config["width"], world_config["height"],
-                                  cam_x, cam_y, shared_buf_name, event_ready, event_close)
+                                  world_config['worldgen']["width"], world_config['worldgen']["height"],
+                                  cam_x, cam_y, shared_buf_name, event_ready, event_close, option_queue, action_queue)
     sim_window_proc = Process(
         target = sim_window.run
     )
@@ -53,19 +61,25 @@ if __name__=="__main__":
 
 
     ### Simulation
-    posUtils.init(world_config['width'], world_config['height'], world_config['grid_cell_size'])
+    posUtils.init(world_config['worldgen']['width'], world_config['worldgen']['height'], world_config['worldgen']['grid_cell_size'])
     world = World.from_config(world_config, agent_config)
 
     ### Frame
     frame = Frame(win_w, win_h, cam_x, cam_y, shm)
 
     ### Main loop
+    prev_time = time.time_ns()
+    nspf = 1/ max_fps * 1e9
     while not event_close.is_set():
         world.step()
-        frame.draw(world)
         metrics.update(world)
-        event_ready.set()
-        #time.sleep(0.001)
+        if time.time_ns() - prev_time > nspf:
+            frame.render(world)
+            actionHandler.update_actions(world)
+            event_ready.set()
+            actionHandler.update_options(frame)
+            prev_time = time.time_ns()
+            #time.sleep(0.001)s
 
     if sim_window_proc.is_alive():
         sim_window_proc.terminate()

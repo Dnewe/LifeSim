@@ -36,7 +36,7 @@ class GeneticContext():
             acc += delta * delta
         return acc ** 0.5
         
-    def update_stats(self, agents: List['Agent']):
+    def update_stats(self, agents: List['Agent'], gamma=0.9, eps=1e-9):
         ### accumulators
         # global
         sums = {}
@@ -66,21 +66,21 @@ class GeneticContext():
             # global
             mean = sums[k] / count
             var = sq_sums[k] / count - mean*mean
-            std = (var ** 0.5) + 1e-8
-            self.genes_mean[k] = mean
-            self.genes_std[k] = std
-            # per specie
+            std = (var ** 0.5) + eps
+            self.genes_mean[k] = gamma * self.genes_mean.get(k, mean) + (1-gamma) * mean
+            self.genes_std[k] = gamma * self.genes_std.get(k, std) + (1-gamma) * std
+        # per specie
+        self.species_genes_mean = {s:{} for s in range(self.n_species)}
+        self.species_genes_std = {s:{} for s in range(self.n_species)}
         for s in range(self.n_species):
-            self.species_genes_mean[s] = {}
-            self.species_genes_std[s] = {}
             for k in sums:
                 if count_specie[s] == 0: # if empty specie
-                    self.species_genes_mean[s][k] = 0.0
-                    self.species_genes_std[s][k]  = 0.0
+                    self.species_genes_mean[s][k] = eps
+                    self.species_genes_std[s][k]  = eps
                     continue
                 m = sums_specie[k][s] / count_specie[s]
                 v = (sq_sums_specie[k][s] / count_specie[s]) - m*m
-                sd = (v ** 0.5) + 1e-8
+                sd = (v ** 0.5) + eps
                 self.species_genes_mean[s][k] = m
                 self.species_genes_std[s][k]  = sd
             
