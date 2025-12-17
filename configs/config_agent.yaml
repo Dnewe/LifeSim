@@ -1,6 +1,6 @@
 
 
-initial_mutation_scale: 2
+initial_mutation_scale: 1
 
 ### Brain
 brain:
@@ -10,7 +10,8 @@ brain:
 
 ### DNA
 dna:
-  mutation_scale: 0.2
+  mutation_scale: 0.1
+  reproduction: 'clone' # 'mate' / 'clone'
   merge_mode: 'rdm_choice'  # 'mean' / 'rdm_choice'
   genes: 
     morphology: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
@@ -22,7 +23,7 @@ dna:
   attributes:
     # physical
     size:  {min: 1, max: None, factor: 3, expr: "morphology**0.5"}
-    speed: {min: 0.01, max: None, factor: 0.3, expr: "physiology**0.5 / morphology**0.5"}
+    speed: {min: 0.01, max: None, factor: 0.2, expr: "physiology**0.5 / morphology**0.25"}
     # behavioral
     aggressive: {min: 0, max: 1, factor: 0.02, expr: "hostilness"}
     social: {min: 0, max: 1, factor: 0.01, expr: "1 / hostilness"} # TODO
@@ -32,20 +33,20 @@ dna:
     regeneration: {min: 0, max: 0.5, factor: 0.01, expr: "metabolism**0.5 * physiology**0.5 / morphology**0.25"}
     damage: {min: 0, max: None, factor: 2, expr: "morphology**0.5 * physiology**0.5"}
     # physiological (energy & mating)
-    lifespan: {min: 1, max: None, factor: 6000, expr: "morphology**0.5 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
+    lifespan: {min: 1, max: None, factor: 3000, expr: "morphology**0.75 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
     max_energy: {min: 1, max: None, factor: 1000, expr: "morphology * physiology**0.5 * metabolism **0.5"}
-    energy_to_mate: {min: 1, max: None, factor: 600, expr: "morphology**0.5 * physiology**0.5"}
+    energy_to_reproduce: {min: 1, max: None, factor: 500, expr: "morphology**0.6 * physiology**0.5"}
     maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.25 * physiology**0.5"}
-    mating_cooldown: {min: 1, max: None, factor: 500, expr: "morphology**0.5 * physiology**0.5"}
+    reproduce_cooldown: {min: 1, max: None, factor: 500, expr: "morphology**0.5 * physiology**0.5"}
     # alimentation
     max_satiety: {min: 0, max: None, factor: 200, expr: "metabolism**0.75 * morphology**0.5"}
-    satiety_gain: {min: 0, max: 1, factor: 0.5, expr: "metabolism**0.5 * morphology**0.25 - 0.75"}
-    metabolism_efficiency: {min: 0, max: 1, factor: 0.6, expr: "metabolism**0.5 * physiology**0.25"}
+    satiety_gain: {min: 0, max: 1, factor: 0.5, expr: "metabolism**0.5 * morphology**0.25 - 0.8"}
+    metabolism_efficiency: {min: 0, max: 1, factor: 0.6, expr: "metabolism**0.4 * physiology**0.1"}
     # TODO eating_speed
     # sensory
-    vision_range: {min: 1, max: None, factor: 100, expr: "sensorial**0.5 * morphology**0.25"}
+    vision_range: {min: 1, max: None, factor: 50, expr: "sensorial**0.5 * morphology**0.25"}
     # energy costs
-    step_cost: {min: 0.0001, max: None, factor: 0.1, expr: "morphology**0.5 * physiology * metabolism**0.5"}
+    step_cost: {min: 0.0001, max: None, factor: 0.1, expr: "morphology**0.5 * physiology * metabolism**0.75"}
     sense_cost: {min: 0.0001, max: None, factor: 0.1, expr: "sensorial * physiology**0.5"}
     idle_cost: {min: 0.0001, max: None, factor: 0.01, expr: "morphology**0.75 * hostilness**0.25 * physiology**0.5 * metabolism"}
 

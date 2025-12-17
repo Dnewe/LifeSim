@@ -20,13 +20,13 @@ class World():
                    world_config['worldgen']['grid_cell_size'], 
                    world_config['n_agents'], 
                    world_config['n_food_spawns'],
-                   world_config['speciation_cutoff'],
+                   world_config['speciation'],
                    world_config['worldgen'],
                    world_config['food'],
                    agent_config,
                    )
     
-    def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_cutoff, worlgen_config, food_config, agent_config) -> None:
+    def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_config, worlgen_config, food_config, agent_config) -> None:
         # params
         self.width = w
         self.height = h
@@ -36,12 +36,13 @@ class World():
         self.foodmap.spawn_food(n_food_spawns)
         self.food_spawn_freq = food_config['spawn_freq']
         # agents
-        self.genetic_context = GeneticContext(speciation_cutoff)
+        self.gc = GeneticContext.from_config(speciation_config)
         self.agents = []
         # initalization
         self._init_grid(cell_size)
         self._init_counters()
         self._init_agents(n_agent=n_agents)
+        self.gc.update_stats(self.agents, global_only=True)
         
     def _init_grid(self, cell_size):
         self.cell_size = cell_size
@@ -52,6 +53,7 @@ class World():
     def _init_counters(self):
         self.step_count = 0
         self.n_agents = 0
+        self.n_agents_per_species = {}
         self.n_births = 0
         self.n_deaths_per_type = {"age": 0, "starvation": 0, "killed": 0}
 
@@ -132,15 +134,21 @@ class World():
             self.foodmap.spawn_food()
             
     def update_genetic_context(self):
-        if self.step_count %100 == 0:
-            self.genetic_context.compute_species(self.agents)
-        self.genetic_context.update_stats(self.agents)
+        self.gc.update(self)
+        
+    def update_counter(self):
+        self.step_count += 1
+        counts = {}
+        for a in self.agents:
+            sid = a.species
+            counts[sid] = counts.get(sid, 0) + 1
+        self.n_agents_per_species = counts
 
     def step(self):
-        self.step_count += 1
         self.update_genetic_context()
         self.update_agents()
         self.update_food()
+        self.update_counter()
         
         
         

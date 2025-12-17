@@ -21,15 +21,14 @@ class Metrics():
         self.births = []
         self.deaths = {}  
         # species
-        self.species_scatter_data = np.zeros((2,2))
+        self.species_scatter_data_and_labels = None
         self.species_dendrogram_data = None
         self.species_labels = []
-        self.n_species = 1
         # genes 
         self.genes_mean_list = {f"mean_{g}": [0] for g in genes}
         self.genes_cv_list = {f"cv_{g}": [0] for g in genes}
-        self.species_genes_mean = {s: [0] for s in range(self.n_species)}
-        self.species_genes_cv = {s: [0] for s in range(self.n_species)}
+        self.species_genes_mean = {}
+        self.species_genes_cv = {}
 
 
     def update(self, world: World):
@@ -46,13 +45,12 @@ class Metrics():
             else: 
                 self.deaths[type].append(n)
         # species
-        self.n_species = world.genetic_context.n_species
-        if len(world.agents) > 0:
-            self.update_species_genes_data(world)
-            self.update_species_scatter_data(world)
-            self.update_species_dendrogram_data(world)
-            # genes
-            self.update_genes_metrics(world)
+        self.n_species = max(1, len(world.gc.species))
+        self.update_species_genes_data(world)
+        self.update_species_scatter_data(world)
+        '''self.update_species_dendrogram_data(world)'''
+        # genes
+        self.update_genes_metrics(world)
         
         self.queue.put(self.snapshot())
         
@@ -68,8 +66,8 @@ class Metrics():
             "deaths": {**self.deaths},
             # species
             "n_species": self.n_species,
-            "species_scatter_data_and_labels": (self.species_scatter_data, self.species_labels),
-            "species_dendrogram_data_and_cutoff": (self.species_dendrogram_data, self.speciation_cutoff),
+            "species_scatter_data_and_labels": self.species_scatter_data_and_labels,
+            #"species_dendrogram_data_and_cutoff": (self.species_dendrogram_data, self.speciation_cutoff),
             # genes
             **{**self.genes_mean_list},
             **{**self.genes_cv_list}, # unpack copy of dict
@@ -87,35 +85,37 @@ class Metrics():
 
     def update_species_scatter_data(self, world: World):
         if len(world.agents) < 2:
-            self.species_scatter_data = np.zeros((2,2))
+            self.species_scatter_data_and_labels = None
             return
         dnas = [a.dna for a in world.agents]
         genes = dnas[0].gene_values.keys()
         mat = np.array([[dna.gene_values[g] for g in genes] for dna in dnas])
         pca = PCA(n_components=2)
-        self.species_labels = np.array([a.specie for a in world.agents])
-        self.species_scatter_data = pca.fit_transform(mat)
+        scatter_data = pca.fit_transform(mat)
+        labels = np.array([int(a.species) for a in world.agents])
+        self.species_scatter_data_and_labels = (scatter_data, labels)
         
-    def update_species_dendrogram_data(self, world: World):
-        distance_matrix = world.genetic_context.distance_matrix
+    '''def update_species_dendrogram_data(self, world: World):
+        distance_matrix = world.gc.distance_matrix
         condensed = distance_matrix[np.triu_indices(len(distance_matrix), k=1)]
         self.species_dendrogram_data = linkage(condensed, method='average')
-        self.speciation_cutoff = world.genetic_context.speciation_cutoff
+        self.speciation_cutoff = world.gc.speciation_cutoff'''
         
     def update_species_genes_data(self, world: World):
-        self.species_genes_mean = {s: [] for s in range(self.n_species)}
-        self.species_genes_cv = {s: [] for s in range(self.n_species)}
-        for s in range(self.n_species):
-            means_dict = world.genetic_context.species_genes_mean[s]
-            stds_dict = world.genetic_context.species_genes_std[s]
+        self.species_genes_mean = {s.id: [] for s in world.gc.species}
+        self.species_genes_cv = {s.id: [] for s in world.gc.species}
+        for s in world.gc.species:
+            sid = s.id
+            means_dict = world.gc.species_genes_mean.get(sid,{})
+            stds_dict = world.gc.species_genes_std.get(sid,{})
             means = [means_dict.get(g,0.) for g in self.genes]
             cvs = [stds_dict.get(g,0.) / means_dict.get(g,1e-8) for g in self.genes]
-            self.species_genes_mean[s] = means
-            self.species_genes_cv[s] = cvs
+            self.species_genes_mean[sid] = means
+            self.species_genes_cv[sid] = cvs
     
     def update_genes_metrics(self, world: World):
-        means = world.genetic_context.genes_mean
-        stds = world.genetic_context.genes_std
+        means = world.gc.genes_mean
+        stds = world.gc.genes_std
         for g in self.genes:
             self.genes_mean_list[f'mean_{g}'].append(means.get(g, 0))
             self.genes_cv_list[f'cv_{g}'].append(stds.get(g, 0)/means.get(g, 1e-8))

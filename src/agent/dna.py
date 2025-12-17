@@ -3,11 +3,13 @@ from typing import Dict, Literal, Self
 from utils.eval_utils import eval_expr
 import numpy as np
 import math
+from copy import deepcopy
 
 
 class DNA():
     # way to merge two parent dnas into a child dna
     merge_mode: Literal['mean', 'rdm_choice']
+    reproduction: Literal['mate', 'clone']
     # rules from config
     gene_rules: Dict
     attributes_rules: Dict
@@ -31,7 +33,7 @@ class DNA():
     # physiological (energy & mating)
     lifespan: float
     max_energy: float
-    energy_to_mate: float
+    energy_to_reproduce: float
     maturity_age: float
     # alimentation
     max_satiety: float
@@ -44,13 +46,14 @@ class DNA():
     sense_cost: float
     idle_cost: float
     # constants
-    mating_cooldown: float
+    reproduce_cooldown: float
     
     
-    def __init__(self, gene_values, gene_rules, attributes_rules, merge_mode, mutation_scale) -> None:
+    def __init__(self, gene_values, gene_rules, attributes_rules, reproduction, merge_mode, mutation_scale) -> None:
         self.gene_values = gene_values
         self.gene_rules = gene_rules
         self.attributes_rules = attributes_rules
+        self.reproduction = reproduction
         self.merge_mode = merge_mode
         self.mutation_scale = mutation_scale
         self.compute_attributes()
@@ -58,14 +61,18 @@ class DNA():
     @classmethod
     def from_config(cls, config: Dict):
         gene_values = {k: v['value'] for k, v in config['genes'].items()}
-        return cls(gene_values, config['genes'], config['attributes'], config['merge_mode'], config['mutation_scale'])
+        return cls(gene_values, config['genes'], config['attributes'], config['reproduction'], config['merge_mode'], config['mutation_scale'])
+    
+    @classmethod
+    def clone(cls, other):
+        return deepcopy(other)
     
     @classmethod
     def from_parents(cls, dna1:Self, dna2:Self):
         merge_mode = np.random.choice([dna1.merge_mode, dna2.merge_mode])
         mutation_scale = np.random.choice([dna1.mutation_scale, dna2.mutation_scale])
         gene_values = {k: cls._merge_values(dna1.gene_values[k], dna2.gene_values[k], merge_mode) for k in dna1.gene_values.keys()}
-        return cls(gene_values, dna1.gene_rules, dna1.attributes_rules, merge_mode, mutation_scale)
+        return cls(gene_values, dna1.gene_rules, dna1.attributes_rules, dna1.reproduction, merge_mode, mutation_scale)
     
     @classmethod
     def _merge_values(cls, v1, v2, merge_mode):

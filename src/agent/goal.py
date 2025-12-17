@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 # Idle Times after doing actions
 WANDERING_IDLE_TIME = 10
 EATING_IDLE_TIME = 0 #20
-MATING_IDLE_TIME = 50
+REPRODUCE_IDLE_TIME = 50
 ATTACKING_IDLE_TIME = 10
 
 
@@ -68,27 +68,40 @@ class EatGoal(Goal):
         energy = agent.dna.metabolism_efficiency * world.take_food_energy(food_pos)
         agent.satiety += agent.dna.satiety_gain * energy
         agent.energy += energy
-        
-    
-class MateGoal(Goal):
-    def exec(self, agent: 'Agent', world: 'World'):
-        if self.kwargs['partner_dist'] < agent.dna.size + self.kwargs['partner'].dna.size:
-            self._mate(agent, self.kwargs['partner'], world)
-            SENSE_COST_FACTOR = 10.
-            self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR    # mating cost handled by agent.mate()
-            self.completed = True
-        else:
-            agent.walk(self.kwargs['partner'].get_pos())
-            SENSE_COST_FACTOR = 2.
-            self.cost = agent.dna.step_cost + agent.dna.sense_cost       
 
+
+        
+class ReproduceGoal(Goal):
+    def exec(self, agent: 'Agent', world: 'World'):
+        if agent.dna.reproduction == 'clone':
+            self._clone(agent, world)
+            SENSE_COST_FACTOR = 10.
+            self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR    # cloning cost handled by agent.reproduce()
+            self.completed = True
+        elif agent.dna.reproduction == 'mate':
+            if self.kwargs['partner_dist'] < agent.dna.size + self.kwargs['partner'].dna.size:
+                self._mate(agent, self.kwargs['partner'], world)
+                SENSE_COST_FACTOR = 10.
+                self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR    # mating cost handled by agent.reproduce()
+                self.completed = True
+            else:
+                agent.walk(self.kwargs['partner'].get_pos())
+                SENSE_COST_FACTOR = 1.
+                self.cost = agent.dna.step_cost + agent.dna.sense_cost 
+    
+    def _clone(self, other: 'Agent', world: 'World'):
+        other.reproduce()
+        from agent.agent import Agent
+        agent = Agent.clone(other)
+        world.add_agent(agent)
+        
     def _mate(self, agent1: 'Agent', agent2: 'Agent', world: 'World'):
-        agent1.mate()
-        agent2.mate()
+        agent1.reproduce()
+        agent2.reproduce()
         from agent.agent import Agent
         agent = Agent.from_parents(agent1, agent2)
         world.add_agent(agent)
-
+    
 
 class FleeGoal(Goal):
     def exec(self, agent: 'Agent', world: 'World'):

@@ -11,6 +11,8 @@ import numpy as np
 sns.set_theme()
 
 
+CMAP = plt.get_cmap("Set3")
+
 SMALL_SIZE = 6
 MEDIUM_SIZE = 8
 BIGGER_SIZE = 12
@@ -94,12 +96,12 @@ class MetricsWindow():
         self.right_label.pack()
         # plots
         # species genesmeans
-        self.right_fig1 = plt.figure(figsize=(6, 3))
+        self.right_fig1 = plt.figure(figsize=(5, 2))
         self.right_ax1 = self.right_fig1.add_subplot(111)
         self.right_canvas1 = FigureCanvasTkAgg(self.right_fig1, master=right)
         self.right_canvas1.get_tk_widget().pack(fill="both", expand=True)
         # species genes cvs
-        self.right_fig2 = plt.figure(figsize=(6, 3))
+        self.right_fig2 = plt.figure(figsize=(5, 2))
         self.right_ax2 = self.right_fig2.add_subplot(111)
         self.right_canvas2 = FigureCanvasTkAgg(self.right_fig2, master=right)
         self.right_canvas2.get_tk_widget().pack(fill="both", expand=True)
@@ -149,18 +151,19 @@ class MetricsWindow():
         # species plot
         self.left_ax2.clear()
         species_plot_type = getattr(self, 'species_plot_type').get()
-        if species_plot_type == 'PCA scatter':
+        if species_plot_type == 'PCA scatter' and metrics["species_scatter_data_and_labels"] is not None:
             points, labels = metrics["species_scatter_data_and_labels"]
+            colors = CMAP(labels % CMAP.N)
             self.left_ax2.set_title('Species scatterplot')
-            self.left_ax2.scatter(points[:,0], points[:,1], c=labels, cmap="tab20")
+            self.left_ax2.scatter(points[:,0], points[:,1], color=colors)
         elif species_plot_type == 'dendrogram':
-            z, cutoff = metrics["species_dendrogram_data_and_cutoff"]
+            '''z, cutoff = metrics["species_dendrogram_data_and_cutoff"]
             self.left_ax2.set_title('Species dendrogram')
             self.left_ax2.set_xlabel("Agents")
             self.left_ax2.set_ylabel("Distance")
             dendrogram(z, ax=self.left_ax2, color_threshold=cutoff, no_labels=True, count_sort=True)
             self.left_ax2.set_ylim(0, cutoff+0.5)
-            self.left_ax2.axhline(cutoff, linestyle="--", color="gray", linewidth=1)
+            self.left_ax2.axhline(cutoff, linestyle="--", color="gray", linewidth=1)'''
             
 
         
@@ -188,8 +191,9 @@ class MetricsWindow():
         width = 0.75 / (metrics['n_species'])
         multiplier = 0
         for s, means in species_genes_mean.items():
+            color = CMAP(s % CMAP.N)
             offset = width * multiplier
-            rects = self.right_ax1.bar(x + offset, means, width, label=s)
+            rects = self.right_ax1.bar(x + offset, means, width, label=s, color=color)
             self.right_ax1.bar_label(rects, padding=3)
             multiplier += 1
         self.right_ax1.set_title('Genes means by species')
@@ -203,8 +207,9 @@ class MetricsWindow():
         width = 0.75 / (metrics['n_species'])
         multiplier = 0
         for s, cvs in species_genes_cv.items():
+            color = CMAP(s % CMAP.N)
             offset = width * multiplier
-            rects = self.right_ax2.bar(x + offset, cvs, width, label=s)
+            rects = self.right_ax2.bar(x + offset, cvs, width, label=s, color=color)
             self.right_ax2.bar_label(rects, padding=3)
             multiplier += 1
         self.right_ax2.set_title('Genes CVs by species')
