@@ -46,7 +46,7 @@ class Agent():
         brain = Brain.clone(other.brain)
         pos = other.get_pos()
         gen = other.generation + 1
-        species = other.species
+        species = -1 # other.species
         energy = other.dna.energy_to_reproduce
         return cls(dna, brain, pos, gen, energy=energy, species=species)
 
@@ -63,7 +63,7 @@ class Agent():
         return cls(dna, brain, pos, gen, energy=energy, species=species)
 
 
-    def __init__(self, dna:DNA, brain:'Brain', pos: posUtils.Pos, gen:int, energy:float, age:float=0, species:int=0) -> None:
+    def __init__(self, dna:DNA, brain:'Brain', pos: posUtils.Pos, gen:int, energy:float, age:float=0, species:int=-1) -> None:
         self.x, self.y = pos
         self.brain = brain
         self.dna = dna
@@ -184,7 +184,7 @@ class Agent():
             g = FACTOR * self.dna.gene_values['physiology']**2
             b = FACTOR * self.dna.gene_values['sensorial']**2
         elif mode == 'specie':
-            cmap = plt.get_cmap('Set3')
+            cmap = plt.get_cmap('Set2')
             r, g, b = [255*c for c in cmap(self.species%cmap.N)[:3]]
         else: # default
             r, g, b = 0, 255, 255

@@ -3,22 +3,21 @@ if TYPE_CHECKING:
     from agent.dna import DNA
     from agent.agent import Agent
     from world.world import World
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.decomposition import PCA
 import numpy as np
 
 
 class Species:
-    def __init__(self, representative_dna, _id) -> None:
+    def __init__(self, representative_dna: 'DNA', _id) -> None:
         self.id = _id
         self.representative = representative_dna
-        self.members = []
+        self.members: List['Agent'] = []
         
 
 class GeneticContext:
-    def __init__(self, speciation_cutoff= 4.0, alpha= 1.0, representative_update_freq=100) -> None:
+    def __init__(self, speciation_cutoff= 4.0, alpha= 1.0, reassign_species=True, representative_update_freq=100) -> None:
         self.speciation_cutoff = speciation_cutoff
         self.alpha = alpha
+        self.reassign_species = reassign_species
         self.representative_update_freq = representative_update_freq
         self.species:List[Species] = []
         self.next_species_id = 0
@@ -30,19 +29,23 @@ class GeneticContext:
         
     @classmethod
     def from_config(cls, config):
-        return cls(config['speciation_cutoff'], config['alpha'], config['representative_update_freq'])
+        return cls(config['speciation_cutoff'], config['alpha'], config['reassign_species'], config['representative_update_freq'])
     
     def update(self, world: 'World'):
-        self.assign_species(world.agents)
+        self.assign_species(world.agents, self.reassign_species)
         self.update_stats(world.agents)
         if world.step_count % self.representative_update_freq == 0:
             self.refresh_representatives()
     
         
-    def assign_species(self, agents: List['Agent']):
+    def assign_species(self, agents: List['Agent'], reassign=True):
         for s in self.species:
             s.members.clear()
         for agent in agents:
+            if not reassign and agent.species in [s.id for s in self.species]: # only find species for agent without species
+                for s in self.species:
+                    if s.id == agent.species: s.members.append(agent)
+                continue
             closest_species = None
             min_distance = float("inf")
             for species in self.species:
@@ -68,6 +71,7 @@ class GeneticContext:
                 s.representative = s.members[0].dna
             else:
                 s.representative = self.choose_medoid(s)
+    
     
     def update_stats(self, agents: List['Agent'], gamma_mean=0.4, gamma_std=0.8, eps=1e-9, global_only=False):
         ### accumulators
@@ -139,9 +143,9 @@ class GeneticContext:
         cosine = 1.0 - np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + eps)
         return euclid * (1.0 + self.alpha * cosine)    
         
-    def choose_medoid(self, species):
+    def choose_medoid(self, species: 'Species'):
         members = species.members
-        best_dna = None
+        best_dna = members[0].dna
         best_score = float("inf")
         for a in members:
             score = 0.0
@@ -156,101 +160,4 @@ class GeneticContext:
     
     def dna_vector(self, dna):
         keys = sorted(dna.gene_values.keys())
-        return np.array([np.log1p(dna.gene_values[k]) for k in keys]), keys  # TODO try without log1p np.log1p(
-                
-'''
-class GeneticContext_:
-    def __init__(self, speciation_cutoff= 4.0, alpha= 1.0) -> None:
-        self.speciation_cutoff = speciation_cutoff
-        self.alpha = alpha
-        # genes
-        self.genes_mean = {}
-        self.genes_std = {}
-        self.species_genes_mean = {}
-        self.species_genes_std = {}
-        # species
-        self.speciation_cutoff = speciation_cutoff
-        self.distance_matrix = np.zeros((2, 2))
-        self.n_species = 1
-        self.model = AgglomerativeClustering(
-            n_clusters=None,
-            metric='precomputed',
-            distance_threshold=speciation_cutoff,
-            linkage='average'
-        )
-            
-    def dna_distance(self, dna1: 'DNA', dna2: 'DNA'):
-        acc = 0.0
-        for gene in dna1.gene_values.keys():
-            v1 = dna1.gene_values[gene]
-            v2 = dna2.gene_values[gene]
-            # normalized difference
-            delta = (v1 - v2) / self.genes_std[gene]
-            acc += delta * delta
-        return acc ** 0.5 / len(dna1.gene_values)
-        
-    def update_stats(self, agents: List['Agent'], gamma=0.5, eps=1e-9):
-        ### accumulators
-        # global
-        sums = {}
-        sq_sums = {}
-        count = 0  
-        # per specie   
-        sums_specie = {}
-        sq_sums_specie = {} 
-        count_specie = [0] * self.n_species
-        ### accumulate
-        for a in agents:
-            s = a.specie
-            count += 1
-            count_specie[s] += 1
-            for k, v in a.dna.gene_values.items():
-                # global
-                sums[k] = sums.get(k, 0.0) + v
-                sq_sums[k] = sq_sums.get(k, 0.0) + v*v      
-                # per specie 
-                if k not in sums_specie:
-                    sums_specie[k] = [0.0] * self.n_species
-                    sq_sums_specie[k] = [0.0] * self.n_species
-                sums_specie[k][s] += v
-                sq_sums_specie[k][s] += v*v    
-        ### compute stats            
-        for k in sums:
-            # global
-            mean = sums[k] / count
-            var = sq_sums[k] / count - mean*mean
-            std = (var ** 0.5) + eps
-            self.genes_mean[k] = gamma * self.genes_mean.get(k, mean) + (1-gamma) * mean
-            self.genes_std[k] = gamma * self.genes_std.get(k, std) + (1-gamma) * std
-        # per specie
-        self.species_genes_mean = {s:{} for s in range(self.n_species)}
-        self.species_genes_std = {s:{} for s in range(self.n_species)}
-        for s in range(self.n_species):
-            for k in sums:
-                if count_specie[s] == 0: # if empty specie
-                    self.species_genes_mean[s][k] = eps
-                    self.species_genes_std[s][k]  = eps
-                    continue
-                m = sums_specie[k][s] / count_specie[s]
-                v = (sq_sums_specie[k][s] / count_specie[s]) - m*m
-                sd = (v ** 0.5) + eps
-                self.species_genes_mean[s][k] = m
-                self.species_genes_std[s][k]  = sd
-            
-    def compute_species(self, agents: List['Agent']):
-        if len(agents) <2:
-            return
-        distance_matrix = np.zeros((len(agents), len(agents)))
-        for i, agent1 in enumerate(agents):
-            for j, agent2 in enumerate(agents):
-                if agent1 == agent2:
-                    continue
-                distance_matrix[i,j] = self.dna_distance(agent1.dna, agent2.dna)
-        
-        labels = self.model.fit_predict(distance_matrix)
-        self.distance_matrix = distance_matrix
-        self.n_species = len(np.unique(labels))
-        for i, agent in enumerate(agents):
-            agent.specie = labels[i]
-        
-        '''
+        return np.array([np.log1p(dna.gene_values[k]) for k in keys]), keys

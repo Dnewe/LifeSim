@@ -43,6 +43,7 @@ class World():
         self._init_counters()
         self._init_agents(n_agent=n_agents)
         self.gc.update_stats(self.agents, global_only=True)
+        self.gc.assign_species(self.agents)
         
     def _init_grid(self, cell_size):
         self.cell_size = cell_size
@@ -145,8 +146,8 @@ class World():
         self.n_agents_per_species = counts
 
     def step(self):
-        self.update_genetic_context()
         self.update_agents()
+        self.update_genetic_context()
         self.update_food()
         self.update_counter()
         
