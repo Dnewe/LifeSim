@@ -3,6 +3,7 @@ from multiprocessing import Queue
 from world.world import World
 from sklearn.decomposition import PCA
 from scipy.cluster.hierarchy import linkage
+import pandas as pd
 import numpy as np
 import time
 
@@ -21,8 +22,8 @@ class Metrics():
         self.births = []
         self.deaths = {}  
         # species
-        self.species_scatter_data_and_labels = None
-        self.species_dendrogram_data = None
+        self.species_scatter_data = None
+        self.species_density_data = {'count': [], 'species': [], 'step': []}
         self.species_labels = []
         # genes 
         self.genes_mean_list = {f"mean_{g}": [0] for g in genes}
@@ -48,10 +49,10 @@ class Metrics():
         self.n_species = max(1, len(world.gc.species))
         self.update_species_genes_data(world)
         self.update_species_scatter_data(world)
-        '''self.update_species_dendrogram_data(world)'''
+        self.update_species_density_data(world)
         # genes
         self.update_genes_metrics(world)
-        
+
         self.queue.put(self.snapshot())
         
     def snapshot(self):
@@ -66,8 +67,8 @@ class Metrics():
             "deaths": {**self.deaths},
             # species
             "n_species": self.n_species,
-            "species_scatter_data_and_labels": self.species_scatter_data_and_labels,
-            #"species_dendrogram_data_and_cutoff": (self.species_dendrogram_data, self.speciation_cutoff),
+            "species_scatter_data": self.species_scatter_data,
+            "species_density_df": pd.DataFrame({**self.species_density_data}),
             # genes
             **{**self.genes_mean_list},
             **{**self.genes_cv_list}, # unpack copy of dict
@@ -85,21 +86,26 @@ class Metrics():
 
     def update_species_scatter_data(self, world: World):
         if len(world.agents) < 2:
-            self.species_scatter_data_and_labels = None
+            self.species_scatter_data = None
             return
-        dnas = [a.dna for a in world.agents]
-        genes = dnas[0].gene_values.keys()
-        mat = np.array([[dna.gene_values[g] for g in genes] for dna in dnas])
+        dnas_all = [a.dna for a in world.agents]
+        dnas_repr = [s.representative for s in world.gc.species]
+        genes = dnas_all[0].gene_values.keys()
+        mat_all = np.array([[dna.gene_values[g] for g in genes] for dna in dnas_all if dna not in dnas_repr])
+        mat_repr = np.array([[dna.gene_values[g] for g in genes] for dna in dnas_repr])
         pca = PCA(n_components=2)
-        scatter_data = pca.fit_transform(mat)
-        labels = np.array([int(a.species) for a in world.agents])
-        self.species_scatter_data_and_labels = (scatter_data, labels)
+        points_all = pca.fit_transform(mat_all)
+        points_repr = pca.transform(mat_repr)
+        labels_all = np.array([int(a.species) for a in world.agents if a.dna not in dnas_repr])
+        labels_repr = np.array([int(a.species) for a in world.agents if a.dna in dnas_repr])
+        self.species_scatter_data = (points_all, points_repr, labels_all, labels_repr)
         
-    '''def update_species_dendrogram_data(self, world: World):
-        distance_matrix = world.gc.distance_matrix
-        condensed = distance_matrix[np.triu_indices(len(distance_matrix), k=1)]
-        self.species_dendrogram_data = linkage(condensed, method='average')
-        self.speciation_cutoff = world.gc.speciation_cutoff'''
+    def update_species_density_data(self, world: World):
+        step = world.step_count
+        for sid, count in world.n_agents_per_species.items():
+            self.species_density_data['count'].append(count)
+            self.species_density_data['species'].append(sid)
+            self.species_density_data['step'].append(step)
         
     def update_species_genes_data(self, world: World):
         self.species_genes_mean = {s.id: [] for s in world.gc.species}
@@ -119,3 +125,9 @@ class Metrics():
         for g in self.genes:
             self.genes_mean_list[f'mean_{g}'].append(means.get(g, 0))
             self.genes_cv_list[f'cv_{g}'].append(stds.get(g, 0)/means.get(g, 1e-8))
+        
+    '''def update_species_dendrogram_data(self, world: World):
+        distance_matrix = world.gc.distance_matrix
+        condensed = distance_matrix[np.triu_indices(len(distance_matrix), k=1)]
+        self.species_dendrogram_data = linkage(condensed, method='average')
+        self.speciation_cutoff = world.gc.speciation_cutoff'''

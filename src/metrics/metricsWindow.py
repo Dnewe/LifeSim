@@ -11,7 +11,7 @@ import numpy as np
 sns.set_theme()
 
 
-CMAP = plt.get_cmap("Set3")
+CMAP = plt.get_cmap("Set2")
 
 SMALL_SIZE = 6
 MEDIUM_SIZE = 8
@@ -63,7 +63,7 @@ class MetricsWindow():
         self.left_canvas1.get_tk_widget().pack(fill="both", expand=False)
         # Species plot button
         tk.Label(left, text="Species", font=("Arial", 14, "bold")).pack()
-        self.make_radio_selector(left, "species_plot_type", ['PCA scatter', 'dendrogram'], default= 'PCA scatter')
+        self.make_radio_selector(left, "species_plot_type", ['PCA scatter', 'density', 'dendrogram'], default= 'PCA scatter')
         # Species plot
         self.left_fig2 = plt.figure(figsize=(6, 6))
         self.left_ax2 = self.left_fig2.add_subplot(111)
@@ -109,14 +109,20 @@ class MetricsWindow():
         self.update()
         self.root.mainloop()
 
+    def update_labels(self, metrics):
+        self.step_label.config(text=f"STEP: {metrics.get("n_step", 0)}")
+        self.step_per_s_label.config(text=f"FPS (cur|avg): {metrics.get("fps_cur", 0):.1f} | {metrics.get("fps_avg", 0):.1f}")
+
     def update(self):
+        latest_metrics = None
         try:
             while True:
-                metrics = self.queue.get_nowait()
-                self.update_plots(metrics)
-                self.update_labels(metrics)                  
+                latest_metrics = self.queue.get_nowait()
         except Empty:
             pass
+        if latest_metrics is not None:
+            self.update_plots(latest_metrics)
+            self.update_labels(latest_metrics)  
         
         self.left_canvas1.draw_idle()
         self.left_canvas2.draw_idle()
@@ -151,19 +157,39 @@ class MetricsWindow():
         # species plot
         self.left_ax2.clear()
         species_plot_type = getattr(self, 'species_plot_type').get()
-        if species_plot_type == 'PCA scatter' and metrics["species_scatter_data_and_labels"] is not None:
-            points, labels = metrics["species_scatter_data_and_labels"]
-            colors = CMAP(labels % CMAP.N)
+        if species_plot_type == 'PCA scatter' and metrics["species_scatter_data"] is not None:
+            points_all, points_repr, labels_all, labels_repr = metrics["species_scatter_data"]
+            colors_all = CMAP(labels_all % CMAP.N)
+            colors_repr = CMAP(labels_repr % CMAP.N)
             self.left_ax2.set_title('Species scatterplot')
-            self.left_ax2.scatter(points[:,0], points[:,1], color=colors)
+            self.left_ax2.scatter(points_all[:,0], points_all[:,1], color=colors_all, marker='.') # all dnas
+            self.left_ax2.scatter(points_repr[:,0], points_repr[:,1], color=colors_repr, marker='*') # species representative dnas
+        elif species_plot_type == 'density' and metrics['species_density_df'] is not None:
+            df = metrics['species_density_df']
+            df["proportion"] = df.groupby("step")["count"].transform(lambda x: x / x.sum())
+            df_pivot = df.pivot(index="step", columns="species", values="proportion").fillna(0)
+            # Compute cumulative sum for stacking
+            df_cumsum = df_pivot.cumsum(axis=1)
+            palette = sns.color_palette("Set3", n_colors=df_pivot.shape[1])
+            species_ids = df_pivot.columns
+            bottom = np.zeros(len(df_pivot))
+            for i, sid in enumerate(species_ids):
+                self.left_ax2.fill_between(
+                    df_pivot.index,
+                    bottom,
+                    df_cumsum[sid],
+                    step="mid",
+                    color=palette[i],
+                    alpha=0.7,
+                    label=f"Species {sid}"
+                )
+                bottom = df_cumsum[sid].values
+            self.left_ax2.set_xlabel("Step")
+            self.left_ax2.set_ylabel("Proportion")
+            self.left_ax2.set_title("Species proportions over time")
+            self.left_ax2.legend()
         elif species_plot_type == 'dendrogram':
-            '''z, cutoff = metrics["species_dendrogram_data_and_cutoff"]
-            self.left_ax2.set_title('Species dendrogram')
-            self.left_ax2.set_xlabel("Agents")
-            self.left_ax2.set_ylabel("Distance")
-            dendrogram(z, ax=self.left_ax2, color_threshold=cutoff, no_labels=True, count_sort=True)
-            self.left_ax2.set_ylim(0, cutoff+0.5)
-            self.left_ax2.axhline(cutoff, linestyle="--", color="gray", linewidth=1)'''
+            pass
             
 
         
@@ -185,42 +211,38 @@ class MetricsWindow():
         
         # == Right ==
         # species genes mean
-        self.right_ax1.clear()
-        species_genes_mean = metrics["species_genes_mean"]
-        x = np.arange(self.n_genes)
-        width = 0.75 / (metrics['n_species'])
-        multiplier = 0
-        for s, means in species_genes_mean.items():
-            color = CMAP(s % CMAP.N)
-            offset = width * multiplier
-            rects = self.right_ax1.bar(x + offset, means, width, label=s, color=color)
-            self.right_ax1.bar_label(rects, padding=3)
-            multiplier += 1
-        self.right_ax1.set_title('Genes means by species')
-        self.right_ax1.set_xticks(x + width, self.genes)
-        self.right_ax1.set_ylabel('values')
-        self.right_ax1.legend(loc='upper left', ncols=metrics['n_species'])
+        self.barplot(self.right_ax1, 
+                     np.arange(self.n_genes), 
+                     metrics["species_genes_mean"].values(), 
+                     metrics["species_genes_mean"].keys(),
+                     self.genes,
+                     'Genes means by species')
         # species genes cv
-        self.right_ax2.clear()
-        species_genes_cv = metrics["species_genes_cv"]
-        x = np.arange(self.n_genes)
-        width = 0.75 / (metrics['n_species'])
+        self.barplot(self.right_ax2, 
+                     np.arange(self.n_genes), 
+                     metrics["species_genes_cv"].values(), 
+                     metrics["species_genes_cv"].keys(),
+                     self.genes,
+                     'Genes CVs by species')
+       
+    
+    def barplot(self, ax, x, ys, labels, xticks, title):
+        ax.clear()
+        n = len(ys)
+        width = 0.75 / (n)
         multiplier = 0
-        for s, cvs in species_genes_cv.items():
-            color = CMAP(s % CMAP.N)
+        for l, y in zip(labels, ys):
+            color = CMAP(l % CMAP.N)
             offset = width * multiplier
-            rects = self.right_ax2.bar(x + offset, cvs, width, label=s, color=color)
-            self.right_ax2.bar_label(rects, padding=3)
+            rects = ax.bar(x + offset, y, width, label=l, color=color)
+            ax.bar_label(rects, padding=3)
             multiplier += 1
-        self.right_ax2.set_title('Genes CVs by species')
-        self.right_ax2.set_xticks(x + width, x)
-        self.right_ax2.set_ylabel('values')
-        self.right_ax2.legend(loc='upper left', ncols=metrics['n_species'])
+        ax.set_title(title)
+        ax.set_xticks(x + width/2, xticks)
+        ax.set_ylabel('values')
+        ax.legend(loc='upper left', ncols=n)  
         
-
-    def update_labels(self, metrics):
-        self.step_label.config(text=f"STEP: {metrics.get("n_step", 0)}")
-        self.step_per_s_label.config(text=f"FPS (cur|avg): {metrics.get("fps_cur", 0):.1f} | {metrics.get("fps_avg", 0):.1f}")
+    
         
     def make_radio_selector(self, parent, attrname, values, default):
         setattr(self, attrname, tk.StringVar(value=default))

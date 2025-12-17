@@ -17,4 +17,4 @@ window:
 ### Metrics
 metrics:
   update_step_freq: 100
-  window_update_time_freq: 500
+  window_update_time_freq: 100
