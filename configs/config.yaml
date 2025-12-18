@@ -7,14 +7,6 @@
 path_config_world: 'H:\Documents\projets\LifeSim\configs\config_world.yaml'
 # agent config
 path_config_agent: 'H:\Documents\projets\LifeSim\configs\config_agent.yaml'
+# display config
+path_config_display: 'H:\Documents\projets\LifeSim\configs\config_display.yaml'
 
-### Simulation Window
-window:
-  height: 720
-  width: 1280
-  max_fps: 30
-
-### Metrics
-metrics:
-  update_step_freq: 100
-  window_update_time_freq: 100

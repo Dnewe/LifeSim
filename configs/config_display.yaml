@@ -1,0 +1,11 @@
+### Simulation Window
+window:
+  height: 720
+  width: 1280
+  max_fps: 24
+  cam_speed: 20
+
+### Metrics
+metrics:
+  update_step_freq: 50
+  window_update_time_freq: 100

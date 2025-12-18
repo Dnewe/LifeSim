@@ -121,8 +121,11 @@ class MetricsWindow():
         except Empty:
             pass
         if latest_metrics is not None:
-            self.update_plots(latest_metrics)
-            self.update_labels(latest_metrics)  
+            try:
+                self.update_plots(latest_metrics)
+                self.update_labels(latest_metrics)  
+            except Exception as e:
+                print(e)
         
         self.left_canvas1.draw_idle()
         self.left_canvas2.draw_idle()
@@ -170,7 +173,7 @@ class MetricsWindow():
             df_pivot = df.pivot(index="step", columns="species", values="proportion").fillna(0)
             # Compute cumulative sum for stacking
             df_cumsum = df_pivot.cumsum(axis=1)
-            palette = sns.color_palette("Set3", n_colors=df_pivot.shape[1])
+            palette = sns.color_palette("Set2", n_colors=df_pivot.shape[1])
             species_ids = df_pivot.columns
             bottom = np.zeros(len(df_pivot))
             for i, sid in enumerate(species_ids):

@@ -23,8 +23,9 @@ if __name__=="__main__":
     config = yaml.load(open(args.config, 'r'), Loader=yaml.SafeLoader)
     world_config = yaml.load(open(config['path_config_world'], 'r'), Loader=yaml.SafeLoader)
     agent_config = yaml.load(open(config['path_config_agent'], 'r'), Loader=yaml.SafeLoader)
-    window_config = config['window']
-    metrics_config = config['metrics']
+    display_config = yaml.load(open(config['path_config_display'], 'r'), Loader=yaml.SafeLoader)
+    window_config = display_config['window']
+    metrics_config = display_config['metrics']
     win_w, win_h = window_config["width"], window_config["height"]
     max_fps = window_config['max_fps']
 
@@ -44,7 +45,7 @@ if __name__=="__main__":
     ### Display Simulation process
     sim_window = SimulationWindow(win_w, win_h,
                                   world_config['worldgen']["width"], world_config['worldgen']["height"],
-                                  cam_x, cam_y, shared_buf_name, event_ready, event_close, option_queue, action_queue)
+                                  window_config['cam_speed'], cam_x, cam_y, shared_buf_name, event_ready, event_close, option_queue, action_queue)
     sim_window_proc = Process(
         target = sim_window.run
     )
