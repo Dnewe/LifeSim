@@ -2,9 +2,12 @@ from typing import Tuple
 import numpy as np
 from utils import pos_utils as posUtils
 from noise import snoise2
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from world.world import World
 
 
-class BiomeMap():
+class FoodMap():
     
     @classmethod
     def from_configs(cls, worldgen_config, food_config):
@@ -13,19 +16,21 @@ class BiomeMap():
                    worldgen_config['noise_map']['scale'], 
                    worldgen_config['noise_map']['octaves'], 
                    worldgen_config['biomes'],
+                   food_config['spawn_freq'],
                    food_config['spawn_rate'],
                    food_config['energy'],
                    food_config['size'],
                    food_config['color'])
         
     def __init__(self, w, h, scale, octaves, biomes_config, 
-                 food_base_spawn_rate, food_base_energy, food_base_size, food_base_color) -> None:
+                 spawn_freq, spawn_rate, energy, food_base_size, food_base_color) -> None:
         # params
-        self.biomes_params = self._get_biome_params(biomes_config, food_base_spawn_rate, food_base_energy)
+        self.spawn_freq = spawn_freq
+        self.biomes_params = self._get_biome_params(biomes_config, spawn_rate, energy)
         self.n_biomes = len(self.biomes_params)
-        self.food_size_factor = (food_base_size / food_base_energy )**0.5
+        self.food_size_factor = (food_base_size / energy )**0.5
         self.food_color = food_base_color
-        self.food_base_energy = food_base_energy
+        self.food_base_energy = energy
         # arrays
         self.biome_arr = np.zeros((w,h)).astype(np.uint8)
         self.food_arr = np.zeros((w,h)).astype(np.uint16)
@@ -67,7 +72,8 @@ class BiomeMap():
             self.food_arr[mask & spawn] = params["food_value"]
             
     def add_food(self, pos, energy):
-        self.food_arr[*pos] = energy
+        if energy>0:
+            self.food_arr[*pos] = energy
         
     def del_food(self, pos):
         self.food_arr[*pos] = 0
@@ -95,6 +101,10 @@ class BiomeMap():
         if dist[i] > radius:
             return None, radius
         return (xs[i], ys[i]), dist[i]
+    
+    def update(self, world: 'World'):
+        if world.step_count % self.spawn_freq == 0 :
+            self.spawn_food()
         
     
 

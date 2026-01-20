@@ -13,6 +13,19 @@ from optionHandler import ActionHandler
 import utils.pos_utils as posUtils
 
 
+def loop(world, metrics, frame, actionHandler, event_ready, event_close):
+    prev_time = time.time_ns()
+    nspf = 1/ max_fps * 1e9
+    while not event_close.is_set():
+        world.step()
+        metrics.update(world)
+        if time.time_ns() - prev_time > nspf:
+            frame.render(world)
+            actionHandler.update_actions(world)
+            event_ready.set()
+            actionHandler.update_options(frame)
+            prev_time = time.time_ns()
+
 
 if __name__=="__main__":
     ### Arguments
@@ -52,10 +65,10 @@ if __name__=="__main__":
     sim_window_proc.start()
 
     ### Display Metrics process
-    genes = list(agent_config['dna']['genes'].keys())
-    actions = list(agent_config['brain']['utility_scores'].keys())
-    metrics = Metrics(genes, step_freq=metrics_config['update_step_freq'])
-    metrics_window = MetricsWindow(genes, actions, metrics.queue, event_close, time_freq= metrics_config['window_update_time_freq'])
+    genes = list(agent_config['genome']['genes'].keys())
+    utility_scores = (agent_config['brain']['utility_scores'])
+    metrics = Metrics(step_freq=metrics_config['update_step_freq'])
+    metrics_window = MetricsWindow(genes, list(utility_scores.keys()), metrics.queue, event_close, time_freq= metrics_config['window_update_time_freq'])
     metrics_window_proc = Process(
         target = metrics_window.run
     )
@@ -70,19 +83,9 @@ if __name__=="__main__":
     frame = Frame(win_w, win_h, cam_x, cam_y, shm)
 
     ### Main loop
-    prev_time = time.time_ns()
-    nspf = 1/ max_fps * 1e9
-    while not event_close.is_set():
-        world.step()
-        metrics.update(world)
-        if time.time_ns() - prev_time > nspf:
-            frame.render(world)
-            actionHandler.update_actions(world)
-            event_ready.set()
-            actionHandler.update_options(frame)
-            prev_time = time.time_ns()
-            #time.sleep(0.001)s
+    loop(world, metrics, frame, actionHandler, event_ready, event_close)
 
+    ### Terminate
     if sim_window_proc.is_alive():
         sim_window_proc.terminate()
     

@@ -47,6 +47,8 @@ def scatter_plot(ax, points_list:List, labels_list:List, markers:List, title:str
 def bar_plot(ax, x, ys, labels, xticks, title:str):
     ax.clear()
     n = len(ys)
+    if n==0:
+        return
     width = 0.75 / (n)
     multiplier = 0
     for l, y in zip(labels, ys):

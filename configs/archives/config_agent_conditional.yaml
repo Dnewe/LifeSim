@@ -1,7 +1,7 @@
 
 
 initial_genome_mutation_factor: 2
-initial_brain_mutation_factor: 2
+initial_brain_mutation_factor: 0
 
 ### Brain
 #brain:
@@ -9,22 +9,12 @@ initial_brain_mutation_factor: 2
   # TODO
 ### Brain
 brain:
-  type: 'utility'
-  mutation_scale: 0.2
-  n_mutations: 1 # -1 for all
-  utility_scores:
-    idle: {'energy': 0, 'satiety': 0, 'age': 0, 'gamma': 0, 'bias': 0}
-    wander: {'energy': 0, 'satiety': 0, 'n_allies': 0, 'n_enemies': 0, 'nearest_enemy_dist': 0, 'gamma': 0, 'bias': 0}
-    eat: {'nearest_food_dist': 0, 'nearest_food_energy': 0, 'energy': 0, 'satiety': 0, 'gamma': 0, 'bias': 3}
-    reproduce: {'ready_to_reproduce': 0, 'age': 0, 'energy': 0, 'gamma': 0, 'bias': 4}
-    follow: {'nearest_ally_dist': 0, 'n_allies': 0, 'n_enemies': 0, 'gamma': 0, 'bias': 0}
-    flee: {'health': 0, 'n_allies': 0, 'n_enemies': 0, 'nearest_ally_dist': 0, 'nearest_enemy_dist': 0, 'gamma': 0, 'bias': 0}
-    attack: {'energy': 0, 'health': 0, 'n_allies': 0, 'n_enemies': 0, 'nearest_ally_dist': 0, 'nearest_enemy_dist': 0, 'gamma': 0, 'bias': 0}
+  type: 'conditional'
 
 
 ### Genome
 genome:
-  mutation_scale: 0.1
+  mutation_scale: 0.5
   n_mutations: 1 # -1 for all
   reproduction: 'clone' # 'mate' / 'clone'
   merge_mode: 'rdm_choice'  # 'mean' / 'rdm_choice'
@@ -33,19 +23,25 @@ genome:
     physiology: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
     metabolism: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
     sensorial: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
+    hostilness: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
+    social: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
     #sex: {type: 'discrete', value: 'random', domain: ['male', 'female'], weights: [1, 1], mutable: True, mutation_factor: 1.,}
   attributes:
     # physical
     size:  {min: 1, max: None, factor: 3, expr: "morphology**0.5"}
     speed: {min: 0.01, max: None, factor: 0.2, expr: "physiology**0.5 / morphology**0.25"}
+    # behavioral
+    aggressive: {min: 0, max: 1, factor: 0.1, expr: "hostilness**2"}
+    social: {min: 0, max: 1, factor: 0.05, expr: "social**2"} # TODO
+    partner_genome_distance: {min: 1, max: None, factor: 2.5, expr: "social / (hostilness)"}
     # physiological (attack & defense)
     max_health: {min: 1, max: None, factor: 10, expr: "morphology**0.75 * physiology**0.5"}
     regeneration: {min: 0, max: 0.5, factor: 0.01, expr: "metabolism**0.5 * physiology**0.5 / morphology**0.25"}
     damage: {min: 0, max: None, factor: 2, expr: "morphology**0.5 * physiology**0.5"}
     # physiological (energy & mating)
-    max_age: {min: 1, max: None, factor: 5000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
+    max_age: {min: 1, max: None, factor: 300000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
     max_energy: {min: 1, max: None, factor: 1000, expr: "morphology**1 * physiology**0.5 * metabolism **0.25"}
-    energy_to_reproduce: {min: 1, max: None, factor: 400, expr: "morphology**0.6 * physiology**0.5"}
+    energy_to_reproduce: {min: 1, max: None, factor: 500, expr: "morphology**0.6 * physiology**0.5"}
     maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.25 * physiology**0.5"}
     reproduce_cooldown: {min: 1, max: None, factor: 500, expr: "morphology**0.5 * physiology**0.5"}
     # alimentation
@@ -58,7 +54,7 @@ genome:
     # energy costs
     step_cost: {min: 0.0001, max: None, factor: 0.1, expr: "morphology**0.5 * physiology * metabolism**0.75"}
     sense_cost: {min: 0.0001, max: None, factor: 0.1, expr: "sensorial * physiology**0.5"}
-    idle_cost: {min: 0.0001, max: None, factor: 0.01, expr: "morphology**0.75 * physiology**0.5 * metabolism"}
+    idle_cost: {min: 0.0001, max: None, factor: 0.01, expr: "morphology**0.75 * hostilness**0.25 * physiology**0.5 * metabolism"}
 
     
       

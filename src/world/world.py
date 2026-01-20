@@ -1,17 +1,37 @@
-from typing import TYPE_CHECKING, Dict, List, Tuple
-from agent.agent import Agent
-import numpy as np
-import utils.pos_utils as posUtils
-from world.biomeMap import BiomeMap
-from geneticContext import GeneticContext
-from agent.brain import Brain
 import math
+from typing import List, Tuple
+import utils.pos_utils as posUtils
+from agent.agent import Agent
+from world.foodMap import FoodMap
+from geneticContext import GeneticContext
+from speciator import Speciator
 
 
 class World():
     width:int
     height:int
     agents:List[Agent]
+    grid:List[List[List[Agent]]]
+    
+    def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_config, worlgen_config, food_config, agent_config) -> None:
+        # params
+        self.width = w
+        self.height = h
+        self.agent_config = agent_config
+        # foodmap
+        self.foodmap = FoodMap.from_configs(worlgen_config, food_config)
+        self.foodmap.spawn_food(n_food_spawns)
+        self.food_spawn_freq = food_config['spawn_freq']
+        # agents
+        self.gc = GeneticContext.from_config(agent_config)
+        self.speciator = Speciator.from_config(self.gc, speciation_config)
+        self.agents = []
+        # initalization
+        self._init_grid(cell_size)
+        self._init_counters()
+        self._init_agents(n_agent=n_agents)
+        self.gc.update(self, global_only=True)
+        self.speciator.assign_species(self, True)
     
     @classmethod
     def from_config(cls, world_config, agent_config):
@@ -25,25 +45,6 @@ class World():
                    world_config['food'],
                    agent_config,
                    )
-    
-    def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_config, worlgen_config, food_config, agent_config) -> None:
-        # params
-        self.width = w
-        self.height = h
-        self.agent_config = agent_config
-        # foodmap
-        self.foodmap = BiomeMap.from_configs(worlgen_config, food_config)
-        self.foodmap.spawn_food(n_food_spawns)
-        self.food_spawn_freq = food_config['spawn_freq']
-        # agents
-        self.gc = GeneticContext.from_config(speciation_config)
-        self.agents = []
-        # initalization
-        self._init_grid(cell_size)
-        self._init_counters()
-        self._init_agents(n_agent=n_agents)
-        self.gc.update_gene_stats(self.agents, global_only=True)
-        self.gc.assign_species(self.agents)
         
     def _init_grid(self, cell_size):
         self.cell_size = cell_size
@@ -64,6 +65,7 @@ class World():
             agent = Agent.from_config(self.agent_config)
             self.add_agent(agent)
     
+    
     def add_agent(self, agent:Agent):
         self.n_agents += 1
         self.n_births += 1
@@ -78,14 +80,6 @@ class World():
         self.n_deaths_per_type[agent.death_reason] += 1
         self.agents.remove(agent)
         self.grid[agent.cell_x][agent.cell_y].remove(agent)
-    
-    def add_food(self, pos, energy):
-        if energy<=0:
-            return
-        self.foodmap.add_food(pos, energy)
-    
-    def delete_food(self, pos):
-        self.foodmap.del_food(pos)
     
     def take_food_energy(self, pos, amount = 5):
         energy = self.foodmap.get_food_energy(pos)
@@ -125,21 +119,27 @@ class World():
         sorted_agents_dists = [(a,d) for a,d in agents_dists if d<=radius]
         return sorted_agents_dists
     
-    def update_agents(self):
-        for agt in self.agents[:]:
-            agt.step(self)
-        # delete dead agents
-        dead_agents = [agt for agt in self.agents if not agt.alive]
-        for agt in dead_agents:
-            self.add_food(agt.get_pos(), agt.energy)
-            self.delete_agent(agt)  
-            
-    def update_food(self): 
-        if self.step_count % self.food_spawn_freq == 0 :
-            self.foodmap.spawn_food()
-            
-    def update_genetic_context(self):
-        self.gc.update(self)
+    def update_grid_pos(self, agent: Agent):
+        new_cx, new_cy = posUtils.grid_pos(agent.get_pos())
+        if new_cx == agent.cell_x and new_cy == agent.cell_y:
+            return
+        self.grid[new_cx][new_cy].append(agent)
+        self.grid[agent.cell_x][agent.cell_y].remove(agent)
+        agent.cell_x = new_cx
+        agent.cell_y = new_cy
+        
+    def step_agents(self):
+        for a in self.agents:
+            a.sense(self)
+            a.decide()
+        for a in self.agents:
+            a.act(self)
+        dead_agents = [a for a in self.agents if not a.alive]
+        for a in dead_agents:
+            self.foodmap.add_food(a.get_pos(), a.energy)
+            self.delete_agent(a) 
+        for a in self.agents:
+            self.update_grid_pos(a)                 
         
     def update_counter(self):
         self.step_count += 1
@@ -152,9 +152,10 @@ class World():
         self.n_agents_per_species = counts
 
     def step(self):
-        self.update_agents()
-        self.update_genetic_context()
-        self.update_food()
+        self.step_agents()
+        self.gc.update(self)
+        self.speciator.update(self)
+        self.foodmap.update(self)
         self.update_counter()
         
         

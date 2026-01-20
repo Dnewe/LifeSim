@@ -1,6 +1,6 @@
 
 ### Initial condition
-n_agents: 100
+n_agents: 400
 n_food_spawns: 10
 
 ### Speciation
@@ -14,16 +14,16 @@ speciation:
 food:
   spawn_freq: 500
   spawn_rate: 0.00001
-  energy: 300
+  energy: 400
   size: 3
   color: [0, 200, 0]
 
 ### World
 worldgen:
   # scale
-  height: 2000 #1440
-  width: 2000 #2560
-  grid_cell_size: 60
+  height: 3000 #1440
+  width: 3000 #2560
+  grid_cell_size: 40
   # biomes
   noise_map: {scale: 0.0004, octaves: 3}
   biomes: 

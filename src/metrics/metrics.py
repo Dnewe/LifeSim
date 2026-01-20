@@ -1,20 +1,23 @@
 from typing import Dict, List
 from multiprocessing import Queue
 from world.world import World
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, IncrementalPCA
 from scipy.cluster.hierarchy import linkage
-import pandas as pd
+from collections import defaultdict
+
 import numpy as np
 import time
 
 
 class Metrics():
-    def __init__(self, genes, step_freq=60) -> None:
-        self.genes = genes
+    def __init__(self, step_freq=60) -> None:
         self.queue = Queue(maxsize=1)
         self.step_freq = step_freq
-        self.prev_time = 0
+        self.initialized = False
+
+    def _init_vars(self, world: World):
         # sim info
+        self.prev_time = 0
         self.n_step = 0
         self.fps_list = []
         # general
@@ -26,19 +29,25 @@ class Metrics():
         self.species_density_data = {'count': [], 'species': [], 'step': []}
         self.species_labels = []
         # genes 
-        self.genes_means = {g: [] for g in genes}
-        self.genes_cvs = {g: [] for g in genes}
+        self.genes = world.gc.genes # helper
+        self.genes_means = defaultdict(list)
+        self.genes_cvs = defaultdict(list)
         self.species_genes_mean = {}
         self.species_genes_cv = {}
         # brain
-        self.actions_density_data = {'count': [], 'action': [], 'step': []}
-        self.brains_means = {} # lists of mean in dict of weights in dict of action of brain
-        self.brains_cvs = {}
+        self.actions_inputs = world.gc.actions_inputs
+        self.brains_means = defaultdict(lambda: defaultdict(list)) #{a: {w: []}}
+        self.brains_cvs = defaultdict(lambda: defaultdict(list)) # {a: {w: []}}
         self.species_brains_mean = {}
         self.species_brains_cv = {}
-
+        # action
+        self.actions_density_data = {'count': [], 'action': [], 'step': []}
 
     def update(self, world: World):
+        if not self.initialized:
+            self._init_vars(world)
+            self.initialized = True
+    
         self.n_step = world.step_count
         if self.n_step % self.step_freq != 0:
             return
@@ -52,7 +61,7 @@ class Metrics():
             else: 
                 self.deaths[type].append(n)
         # species
-        self.n_species = max(1, len(world.gc.species))
+        self.n_species = world.speciator.n_species
         self.update_species_genes_data(world)
         self.update_species_scatter_data(world)
         self.update_species_density_data(world)
@@ -62,6 +71,8 @@ class Metrics():
         self.update_actions_density_data(world)
         self.update_brain_metrics(world)
 
+        if self.queue.full():
+            self.queue.empty()
         self.queue.put(self.snapshot())
         
     def snapshot(self):
@@ -78,14 +89,14 @@ class Metrics():
             # species
             "n_species": self.n_species,
             "species_scatter_data": self.species_scatter_data,
-            "species_density_df": pd.DataFrame({**self.species_density_data}),
+            "species_density_data": self.species_density_data,
             # genes
             "genes_means": {**self.genes_means},
             "genes_cvs": {**self.genes_cvs},
             "species_genes_mean": self.species_genes_mean,
             "species_genes_cv": self.species_genes_cv,
             # brains
-            "actions_density_df": pd.DataFrame({**self.actions_density_data}),
+            "actions_density_data": self.actions_density_data,
             "brains_means": {**self.brains_means},
             "brains_cvs": {**self.brains_cvs},
             "species_brains_mean": self.species_brains_mean,
@@ -104,18 +115,18 @@ class Metrics():
         if len(world.agents) <= 2:
             self.species_scatter_data = None
             return
-        dnas_all = [a.dna for a in world.agents]
-        dnas_repr = [s.representative for s in world.gc.species]
-        genes = dnas_all[0].gene_values.keys()
-        mat_all = np.array([[dna.gene_values[g] for g in genes] for dna in dnas_all if dna not in dnas_repr])
-        mat_repr = np.array([[dna.gene_values[g] for g in genes] for dna in dnas_repr])
+        genomes_all = [a.genome for a in world.agents]
+        genomes_repr = [s.genome for s in world.speciator.species]
+        genes = genomes_all[0].gene_values.keys()
+        mat_all = np.array([[genome.gene_values[g] for g in genes] for genome in genomes_all if genome not in genomes_repr])
+        mat_repr = np.array([[genome.gene_values[g] for g in genes] for genome in genomes_repr])
         if mat_all.shape[0] < 2:
             return  # exit if not enough non-representant agents
-        pca = PCA(n_components=2)
+        pca = IncrementalPCA(n_components=2, batch_size=256)
         points_all = pca.fit_transform(mat_all)
         points_repr = pca.transform(mat_repr)
-        labels_all = np.array([int(a.species) for a in world.agents if a.dna not in dnas_repr])
-        labels_repr = np.array([s.id for s in world.gc.species])
+        labels_all = np.array([int(a.species) for a in world.agents if a.genome not in genomes_repr])
+        labels_repr = np.array([s.id for s in world.speciator.species])
         self.species_scatter_data = {'points_list': [points_all, points_repr],
                                      'labels_list': [labels_all, labels_repr],
                                      'markers': ['.', '*']}
@@ -128,21 +139,24 @@ class Metrics():
             self.species_density_data['step'].append(step)
     
     def update_genes_metrics(self, world: World):
-        means = world.gc.genes_mean
-        stds = world.gc.genes_std
         for g in self.genes:
-            self.genes_means[g].append(means.get(g, 0))
-            self.genes_cvs[g].append(stds.get(g, 0)/means.get(g, 1e-8))
+            mean = world.gc.get_gene_mean(g)
+            std = world.gc.get_gene_std(g)
+            self.genes_means[g].append(mean)
+            self.genes_cvs[g].append(std / mean +1e-8)
         
     def update_species_genes_data(self, world: World):
-        self.species_genes_mean = {s.id: [] for s in world.gc.species}
-        self.species_genes_cv = {s.id: [] for s in world.gc.species}
-        for s in world.gc.species:
+        self.species_genes_mean = {s.id: [] for s in world.speciator.species}
+        self.species_genes_cv = {s.id: [] for s in world.speciator.species}
+        for s in world.speciator.species:
             sid = s.id
-            means_dict = world.gc.species_genes_mean.get(sid,{})
-            stds_dict = world.gc.species_genes_std.get(sid,{})
-            means = [means_dict.get(g,0.) for g in self.genes]
-            cvs = [stds_dict.get(g,0.) / means_dict.get(g,1e-8) for g in self.genes]
+            means = [world.gc.get_gene_mean(g, sid) for g in self.genes]
+            stds = [world.gc.get_gene_std(g, sid) for g in self.genes]
+            cvs = [std / mean for std, mean in zip(stds, means)]
+            #means_dict = world.gc.species_genes_mean[sid]
+            #stds_dict = world.gc.species_genes_std[sid]
+            #means = [means_dict[g] for g in self.genes]
+            #cvs = [stds_dict[g] / means_dict[g] for g in self.genes]
             self.species_genes_mean[sid] = means
             self.species_genes_cv[sid] = cvs
             
@@ -155,31 +169,30 @@ class Metrics():
             world.n_actions_per_type[action] = 0 # reset count
             
     def update_brain_metrics(self, world: World):
-        means = world.gc.brains_mean
-        stds = world.gc.brains_std
-        for a in means:
-            for w in means[a]:
-                self.brains_means[a] = self.brains_means.get(a, {})
-                self.brains_means[a][w] = self.brains_means[a].get(w, [])
-                self.brains_means[a][w].append(means[a].get(w, 0))
-                self.brains_cvs[a] = self.brains_cvs.get(a, {})
-                self.brains_cvs[a][w] = self.brains_cvs[a].get(w, [])
-                self.brains_cvs[a][w].append(stds[a].get(w, 0) / (means[a].get(w, 0) + 1e-8))
-        from utils.debug import print_brain_vars
-        print_brain_vars(means)
+        for a, inputs in self.actions_inputs.items():
+            for inp in inputs:
+                mean = world.gc.get_action_input_mean(a, inp)
+                std = world.gc.get_action_input_std(a, inp)
+                self.brains_means[a][inp].append(mean)
+                self.brains_cvs[a][inp].append(std / mean + 1e-8)
             
     def update_species_brains_data(self, world: World):
-        self.species_brains_mean = {s.id: {} for s in world.gc.species}
-        self.species_brains_cv = {s.id: {} for s in world.gc.species}
-        for s in world.gc.species:
+        self.species_brains_mean = {s.id: {} for s in world.speciator.species}
+        self.species_brains_cv = {s.id: {} for s in world.speciator.species}
+        for s in world.speciator.species:
             sid = s.id
-            means_dict = world.gc.species_brains_mean.get(sid,{})
-            stds_dict = world.gc.species_brains_std.get(sid,{})
-            means = {}
-            cvs = {}
-            for a in means_dict:
-                means[a] = {w: means_dict[a].get(w, 0.0) for a in means_dict for w in means_dict[a]}
-                cvs[a] = {w: stds_dict[a].get(w, 0.0)  / (means_dict[a].get(w, 0.0) + 1e-8)  for a in means_dict for w in means_dict[a]}
+            #means_dict = world.gc.species_brains_mean[sid]
+            #stds_dict = world.gc.species_brains_std[sid]
+            means = defaultdict(dict)
+            cvs = defaultdict(dict)
+            for a, inputs in self.actions_inputs.items():
+                for inp in inputs:
+                    mean = world.gc.get_action_input_mean(a, inp)
+                    std = world.gc.get_action_input_std(a, inp)
+                    means[a][inp] = mean
+                    cvs[a][inp] = std / mean + 1e-8
+                #means[a] = {w: means_dict[a][w] for a in means_dict for w in means_dict[a]}
+                #cvs[a] = {w: stds_dict[a][w]  / (means_dict[a][w] + 1e-8)  for a in means_dict for w in means_dict[a]}
             self.species_brains_mean[sid] = means
             self.species_brains_cv[sid] = cvs
                     

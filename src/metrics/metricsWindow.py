@@ -8,6 +8,7 @@ import tkinter as tk
 from queue import Empty
 from utils.plot import *
 import numpy as np
+import pandas as pd
 
 sns.set_theme()
 
@@ -79,13 +80,13 @@ class MetricsWindow():
         self.mid_canvas1 = FigureCanvasTkAgg(self.mid_fig1, master=mid)
         self.mid_canvas1.get_tk_widget().pack(fill="both", expand=False)
         # Brain action distr
+        tk.Label(mid, text="Brain", font=("Arial", 14, "bold")).pack(pady=(10, 0))
         self.mid_fig2 = plt.figure(figsize=(6, 2))
         self.mid_ax2 = self.mid_fig2.add_subplot(111)
         self.mid_canvas2 = FigureCanvasTkAgg(self.mid_fig2, master=mid)
         self.mid_canvas2.get_tk_widget().pack(fill="both", expand=False)
         # Brain distribution plots
         self.make_menu_selector(mid, "brain_action", self.actions, default= self.actions[0])
-        tk.Label(mid, text="Brain", font=("Arial", 14, "bold")).pack(pady=(10, 0))
         self.mid_fig3, self.mid_axs3 = plt.subplots(1, 2, figsize=(6, 3))
         self.mid_canvas3 = FigureCanvasTkAgg(self.mid_fig3, master=mid)
         self.mid_canvas3.get_tk_widget().pack(fill="both", expand=False)
@@ -159,8 +160,9 @@ class MetricsWindow():
         species_plot_type = getattr(self, 'species_plot_type').get()
         if species_plot_type == 'PCA scatter' and metrics["species_scatter_data"] is not None:
             scatter_plot(self.left_ax2, **metrics["species_scatter_data"], title='Species scatterplot')
-        elif species_plot_type == 'density' and metrics['species_density_df'] is not None:
-            density_plot(self.left_ax2 , metrics['species_density_df'], 'step', 'count', 'species', "Species proportions over time")
+        elif species_plot_type == 'density' and metrics['species_density_data'] is not None:
+            species_density_df = pd.DataFrame(metrics['species_density_data'])
+            density_plot(self.left_ax2 , species_density_df, 'step', 'count', 'species', "Species proportions over time")
         elif species_plot_type == 'dendrogram':
             pass
         
@@ -169,7 +171,8 @@ class MetricsWindow():
         line_multiplot(self.mid_axs1[0], steps, metrics[f"genes_means"].values(), [f'{g} mean' for g in metrics[f"genes_means"].keys()])
         line_multiplot(self.mid_axs1[1], steps, metrics[f"genes_cvs"].values(), [f'{g} CV' for g in metrics[f"genes_cvs"].keys()])
         # brain 
-        density_plot(self.mid_ax2, metrics['actions_density_df'], 'step', 'count', 'action', "Actions density")
+        actions_density_df = pd.DataFrame(metrics['actions_density_data'])
+        density_plot(self.mid_ax2, actions_density_df, 'step', 'count', 'action', "Actions density")
         brain_action = getattr(self, 'brain_action').get()
         action_means = metrics['brains_means'][brain_action]
         action_cvs = metrics['brains_cvs'][brain_action]

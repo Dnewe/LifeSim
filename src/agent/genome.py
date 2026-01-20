@@ -6,8 +6,8 @@ import math
 from copy import deepcopy
 
 
-class DNA():
-    # way to merge two parent dnas into a child dna
+class Genome():
+    # way to merge two parent genomes into a child genome
     merge_mode: Literal['mean', 'rdm_choice']
     reproduction: Literal['mate', 'clone']
     # rules from config
@@ -25,7 +25,7 @@ class DNA():
     # behavioral
     aggressive: float
     social: float
-    partner_dna_distance: float
+    partner_genome_distance: float
     # physiological (attack & defense)
     damage: float
     max_health: float
@@ -49,30 +49,32 @@ class DNA():
     reproduce_cooldown: float
     
     
-    def __init__(self, gene_values, gene_rules, attributes_rules, reproduction, merge_mode, mutation_scale) -> None:
+    def __init__(self, gene_values, gene_rules, attributes_rules, reproduction, merge_mode, mutation_scale, n_mutations) -> None:
         self.gene_values = gene_values
         self.gene_rules = gene_rules
         self.attributes_rules = attributes_rules
         self.reproduction = reproduction
         self.merge_mode = merge_mode
         self.mutation_scale = mutation_scale
+        self.n_mutations = n_mutations
         self.compute_attributes()
     
     @classmethod
     def from_config(cls, config: Dict):
         gene_values = {k: v['value'] for k, v in config['genes'].items()}
-        return cls(gene_values, config['genes'], config['attributes'], config['reproduction'], config['merge_mode'], config['mutation_scale'])
+        return cls(gene_values, config['genes'], config['attributes'], config['reproduction'], config['merge_mode'], config['mutation_scale'], config['n_mutations'])
     
     @classmethod
     def clone(cls, other):
         return deepcopy(other)
     
     @classmethod
-    def from_parents(cls, dna1:Self, dna2:Self):
-        merge_mode = np.random.choice([dna1.merge_mode, dna2.merge_mode])
-        mutation_scale = np.random.choice([dna1.mutation_scale, dna2.mutation_scale])
-        gene_values = {k: cls._merge_values(dna1.gene_values[k], dna2.gene_values[k], merge_mode) for k in dna1.gene_values.keys()}
-        return cls(gene_values, dna1.gene_rules, dna1.attributes_rules, dna1.reproduction, merge_mode, mutation_scale)
+    def from_parents(cls, genome1:Self, genome2:Self):
+        merge_mode = np.random.choice([genome1.merge_mode, genome2.merge_mode])
+        mutation_scale = np.random.choice([genome1.mutation_scale, genome2.mutation_scale])
+        n_mutations = np.random.choice([genome1.n_mutations, genome2.n_mutations])
+        gene_values = {k: cls._merge_values(genome1.gene_values[k], genome2.gene_values[k], merge_mode) for k in genome1.gene_values.keys()}
+        return cls(gene_values, genome1.gene_rules, genome1.attributes_rules, genome1.reproduction, merge_mode, mutation_scale, n_mutations)
     
     @classmethod
     def _merge_values(cls, v1, v2, merge_mode):
@@ -90,9 +92,14 @@ class DNA():
             value = self._clamp_value(value, rules["min"], rules["max"])
             setattr(self, name, value)
     
-    def mutate(self, scale_factor= 1., n_genes= 1):
+    def mutate(self, scale_factor= 1., n_mutations: int|None= None):
         # TODO other types of mutation
-        genes = np.random.choice(list(self.gene_rules.keys()), n_genes) if n_genes>=0 else self.gene_rules.keys()
+        if n_mutations is None:
+            genes = np.random.choice(list(self.gene_rules.keys()), self.n_mutations) 
+        elif n_mutations < 0:
+            genes = self.gene_rules.keys()
+        else:
+            genes = np.random.choice(list(self.gene_rules.keys()), n_mutations)
         for k in genes:
             rules = self.gene_rules[k]
             if rules['mutable']:
