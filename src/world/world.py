@@ -42,7 +42,7 @@ class World():
         self._init_grid(cell_size)
         self._init_counters()
         self._init_agents(n_agent=n_agents)
-        self.gc.update_stats(self.agents, global_only=True)
+        self.gc.update_gene_stats(self.agents, global_only=True)
         self.gc.assign_species(self.agents)
         
     def _init_grid(self, cell_size):
@@ -57,6 +57,7 @@ class World():
         self.n_agents_per_species = {}
         self.n_births = 0
         self.n_deaths_per_type = {"age": 0, "starvation": 0, "killed": 0}
+        self.n_actions_per_type = {a: 0 for a in self.agent_config['brain']['utility_scores'].keys()}
 
     def _init_agents(self, n_agent=10):
         for _ in range(n_agent):
@@ -98,14 +99,17 @@ class World():
     def get_nearest_food(self, pos, radius: int) -> Tuple[posUtils.Pos|None, float]:
         return self.foodmap.get_nearest_food(pos, radius)
     
-    def get_nearest_agent(self, from_agent: Agent, radius: int, cond=None) -> Tuple[Agent|None, float]:
+    def get_near_agents(self, from_agent: Agent, radius: int) -> List[Tuple[Agent, float]]:
+        '''
+        Get agents in radius around an agent,
+        returns a list containing agents ordered by distance.
+        '''
         if len(self.agents) <= 1:
-            return None, 0
-        closest = None
-        closest_dist = float("inf")
+            return []
         
         cx, cy = posUtils.grid_pos(from_agent.get_pos())
         cells_offset = math.ceil(radius / self.cell_size)
+        agents_dists = []
         for dx in range(-cells_offset, cells_offset+1):
             for dy in range(-cells_offset, cells_offset+1):
                 nx = cx + dx
@@ -115,15 +119,15 @@ class World():
                         if other_agent is from_agent:
                             continue
                         dist = posUtils.distance(from_agent.get_pos(), other_agent.get_pos())
-                        if dist < closest_dist:
-                            closest = other_agent
-                            closest_dist = dist
-                        
-        return (closest, closest_dist) if closest_dist <= radius else (None, 0)
+                        agents_dists.append((other_agent, dist))
+        # sort
+        agents_dists.sort(key= lambda a: a[1])
+        sorted_agents_dists = [(a,d) for a,d in agents_dists if d<=radius]
+        return sorted_agents_dists
     
     def update_agents(self):
         for agt in self.agents[:]:
-            agt.step(self) 
+            agt.step(self)
         # delete dead agents
         dead_agents = [agt for agt in self.agents if not agt.alive]
         for agt in dead_agents:
@@ -141,6 +145,8 @@ class World():
         self.step_count += 1
         counts = {}
         for a in self.agents:
+            action = a.brain.action
+            self.n_actions_per_type[action] += 1
             sid = a.species
             counts[sid] = counts.get(sid, 0) + 1
         self.n_agents_per_species = counts

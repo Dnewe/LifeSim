@@ -6,12 +6,10 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.cluster.hierarchy import dendrogram
 import tkinter as tk
 from queue import Empty
+from utils.plot import *
 import numpy as np
 
 sns.set_theme()
-
-
-CMAP = plt.get_cmap("Set2")
 
 SMALL_SIZE = 6
 MEDIUM_SIZE = 8
@@ -28,9 +26,11 @@ plt.rc('figure', titlesize=BIGGER_SIZE)
 
 class MetricsWindow():
 
-    def __init__(self, genes, queue, event_close, time_freq = 1000) -> None:
+    def __init__(self, genes, actions, queue, event_close, time_freq = 1000) -> None:
         self.genes = genes
         self.n_genes = len(genes)
+        self.actions = actions
+        self.n_actions = len(actions)
         self.queue = queue
         self.event_close = event_close
         self.time_freq = time_freq
@@ -75,14 +75,20 @@ class MetricsWindow():
         mid.pack(side="left", fill="both", expand=True, padx=4, pady=4)
         # Genes distribution plots
         tk.Label(mid, text="Genes", font=("Arial", 14, "bold")).pack(pady=(10, 0))
-        self.mid_fig1, self.mid_axs1 = plt.subplots(2, self.n_genes, figsize=(6, 4))
+        self.mid_fig1, self.mid_axs1 = plt.subplots(2, self.n_genes, figsize=(6, 3))
         self.mid_canvas1 = FigureCanvasTkAgg(self.mid_fig1, master=mid)
         self.mid_canvas1.get_tk_widget().pack(fill="both", expand=False)
-        # Brain distribution plots
-        tk.Label(mid, text="Brain", font=("Arial", 14, "bold")).pack(pady=(10, 0))
-        self.mid_fig2, self.mid_axs2 = plt.subplots(2, self.n_genes, figsize=(6, 4))
+        # Brain action distr
+        self.mid_fig2 = plt.figure(figsize=(6, 2))
+        self.mid_ax2 = self.mid_fig2.add_subplot(111)
         self.mid_canvas2 = FigureCanvasTkAgg(self.mid_fig2, master=mid)
         self.mid_canvas2.get_tk_widget().pack(fill="both", expand=False)
+        # Brain distribution plots
+        self.make_menu_selector(mid, "brain_action", self.actions, default= self.actions[0])
+        tk.Label(mid, text="Brain", font=("Arial", 14, "bold")).pack(pady=(10, 0))
+        self.mid_fig3, self.mid_axs3 = plt.subplots(1, 2, figsize=(6, 3))
+        self.mid_canvas3 = FigureCanvasTkAgg(self.mid_fig3, master=mid)
+        self.mid_canvas3.get_tk_widget().pack(fill="both", expand=False)
         
         # == Right column ==
         right = tk.Frame(main)
@@ -109,141 +115,73 @@ class MetricsWindow():
         self.update()
         self.root.mainloop()
 
-    def update_labels(self, metrics):
-        self.step_label.config(text=f"STEP: {metrics.get("n_step", 0)}")
-        self.step_per_s_label.config(text=f"FPS (cur|avg): {metrics.get("fps_cur", 0):.1f} | {metrics.get("fps_avg", 0):.1f}")
 
     def update(self):
-        latest_metrics = None
         try:
-            while True:
-                latest_metrics = self.queue.get_nowait()
+            metrics = self.queue.get_nowait()
         except Empty:
-            pass
-        if latest_metrics is not None:
+            metrics = None
+        if metrics is not None:
             try:
-                self.update_plots(latest_metrics)
-                self.update_labels(latest_metrics)  
+                self.update_plots(metrics)
+                self.update_labels(metrics)  
             except Exception as e:
                 print(e)
-        
+     
         self.left_canvas1.draw_idle()
         self.left_canvas2.draw_idle()
         self.mid_canvas1.draw_idle()
         self.mid_canvas2.draw_idle()
+        self.mid_canvas3.draw_idle()
         self.right_canvas1.draw_idle()
         self.right_canvas2.draw_idle()
         self.root.after(self.time_freq, self.update)
+   
         
-    def clear_subaxs(self, subaxs):
-        for ax in subaxs.ravel():
-            ax.clear()
+    def update_labels(self, metrics):
+        self.step_label.config(text=f"STEP: {metrics.get("n_step", 0)}")
+        self.step_per_s_label.config(text=f"FPS (cur|avg): {metrics.get("fps_cur", 0):.1f} | {metrics.get("fps_avg", 0):.1f}")
+      
         
     def update_plots(self, metrics):
+        steps = metrics['steps']
         # == Left ==
         
         # general stats
-        self.clear_subaxs(self.left_axs1)
             # population
-        self.left_axs1[0].set_title('Population')
-        self.left_axs1[0].plot(metrics["population"])
-        self.left_axs1[0].set_ylim(0)
+        line_plot(self.left_axs1[0], steps, metrics["population"], 'Population', ylim=0)
             # births
-        self.left_axs1[1].set_title('Births')
-        self.left_axs1[1].plot(metrics["births"])
+        line_plot(self.left_axs1[1], steps, metrics["births"], 'Births')
             # deaths
-        self.left_axs1[2].set_title('Deaths')
-        for reason in metrics["deaths"].keys():
-            self.left_axs1[2].plot(metrics["deaths"][reason], label=reason)
-        self.left_axs1[2].legend()
+        multiline_plot(self.left_axs1[2], steps, metrics["deaths"].values(), metrics["deaths"].keys(), 'Deaths')
         
         # species plot
-        self.left_ax2.clear()
         species_plot_type = getattr(self, 'species_plot_type').get()
         if species_plot_type == 'PCA scatter' and metrics["species_scatter_data"] is not None:
-            points_all, points_repr, labels_all, labels_repr = metrics["species_scatter_data"]
-            colors_all = CMAP(labels_all % CMAP.N)
-            colors_repr = CMAP(labels_repr % CMAP.N)
-            self.left_ax2.set_title('Species scatterplot')
-            self.left_ax2.scatter(points_all[:,0], points_all[:,1], color=colors_all, marker='.') # all dnas
-            self.left_ax2.scatter(points_repr[:,0], points_repr[:,1], color=colors_repr, marker='*') # species representative dnas
+            scatter_plot(self.left_ax2, **metrics["species_scatter_data"], title='Species scatterplot')
         elif species_plot_type == 'density' and metrics['species_density_df'] is not None:
-            df = metrics['species_density_df']
-            df["proportion"] = df.groupby("step")["count"].transform(lambda x: x / x.sum())
-            df_pivot = df.pivot(index="step", columns="species", values="proportion").fillna(0)
-            # Compute cumulative sum for stacking
-            df_cumsum = df_pivot.cumsum(axis=1)
-            palette = sns.color_palette("Set2", n_colors=df_pivot.shape[1])
-            species_ids = df_pivot.columns
-            bottom = np.zeros(len(df_pivot))
-            for i, sid in enumerate(species_ids):
-                self.left_ax2.fill_between(
-                    df_pivot.index,
-                    bottom,
-                    df_cumsum[sid],
-                    step="mid",
-                    color=palette[i],
-                    alpha=0.7,
-                    label=f"Species {sid}"
-                )
-                bottom = df_cumsum[sid].values
-            self.left_ax2.set_xlabel("Step")
-            self.left_ax2.set_ylabel("Proportion")
-            self.left_ax2.set_title("Species proportions over time")
-            self.left_ax2.legend()
+            density_plot(self.left_ax2 , metrics['species_density_df'], 'step', 'count', 'species', "Species proportions over time")
         elif species_plot_type == 'dendrogram':
             pass
-            
-
         
         # == Middle ==
         # genes
-        self.clear_subaxs(self.mid_axs1)
-        for i, gene in enumerate(self.genes):
-            self.mid_axs1[0, i].set_title(f'{gene} mean')
-            self.mid_axs1[1, i].set_title(f'{gene} CV')
-            self.mid_axs1[0, i].plot(metrics[f"mean_{gene}"]) 
-            self.mid_axs1[1, i].plot(metrics[f"cv_{gene}"]) 
+        line_multiplot(self.mid_axs1[0], steps, metrics[f"genes_means"].values(), [f'{g} mean' for g in metrics[f"genes_means"].keys()])
+        line_multiplot(self.mid_axs1[1], steps, metrics[f"genes_cvs"].values(), [f'{g} CV' for g in metrics[f"genes_cvs"].keys()])
         # brain 
-        self.clear_subaxs(self.mid_axs2)
-        for i, gene in []:
-            self.mid_axs2[0, i].set_title(f'{gene} mean')
-            self.mid_axs2[1, i].set_title(f'{gene} CV')
-            self.mid_axs2[0, i].plot(metrics[f"mean_{gene}"]) 
-            self.mid_axs2[1, i].plot(metrics[f"cv_{gene}"]) 
+        density_plot(self.mid_ax2, metrics['actions_density_df'], 'step', 'count', 'action', "Actions density")
+        brain_action = getattr(self, 'brain_action').get()
+        action_means = metrics['brains_means'][brain_action]
+        action_cvs = metrics['brains_cvs'][brain_action]
+        multiline_plot(self.mid_axs3[0], steps, action_means.values(), action_means.keys(), f'{brain_action} mean')
+        multiline_plot(self.mid_axs3[1], steps, action_cvs.values(), action_cvs.keys(), f'{brain_action} CV')
         
         # == Right ==
+        x = np.arange(self.n_genes)
         # species genes mean
-        self.barplot(self.right_ax1, 
-                     np.arange(self.n_genes), 
-                     metrics["species_genes_mean"].values(), 
-                     metrics["species_genes_mean"].keys(),
-                     self.genes,
-                     'Genes means by species')
+        bar_plot(self.right_ax1, x, metrics["species_genes_mean"].values(), metrics["species_genes_mean"].keys(), self.genes, 'Genes means by species')
         # species genes cv
-        self.barplot(self.right_ax2, 
-                     np.arange(self.n_genes), 
-                     metrics["species_genes_cv"].values(), 
-                     metrics["species_genes_cv"].keys(),
-                     self.genes,
-                     'Genes CVs by species')
-       
-    
-    def barplot(self, ax, x, ys, labels, xticks, title):
-        ax.clear()
-        n = len(ys)
-        width = 0.75 / (n)
-        multiplier = 0
-        for l, y in zip(labels, ys):
-            color = CMAP(l % CMAP.N)
-            offset = width * multiplier
-            rects = ax.bar(x + offset, y, width, label=l, color=color)
-            ax.bar_label(rects, padding=3)
-            multiplier += 1
-        ax.set_title(title)
-        ax.set_xticks(x + width/2, xticks)
-        ax.set_ylabel('values')
-        ax.legend(loc='upper left', ncols=n)  
+        bar_plot(self.right_ax2, x, metrics["species_genes_cv"].values(), metrics["species_genes_cv"].keys(), self.genes, 'Genes CVs by species')
         
     
         
@@ -252,6 +190,20 @@ class MetricsWindow():
         for v in values:
             tk.Radiobutton(parent, text=str(v), value=v,
                         variable=getattr(self, attrname)).pack(anchor="w")
+            
+    def make_menu_selector(self, parent, attrname, values, default):
+        var = tk.StringVar(value=default)
+        setattr(self, attrname, var)
+        menubtn = tk.Menubutton(parent, textvariable=var, relief=tk.RAISED)
+        menubtn.pack(anchor="w")
+        menu = tk.Menu(menubtn, tearoff=0)
+        for v in values:
+            menu.add_radiobutton(
+                label=str(v),
+                value=v,
+                variable=var
+            )
+        menubtn.config(menu=menu)
 
     def on_close(self):
         print("Metrics window closed.")

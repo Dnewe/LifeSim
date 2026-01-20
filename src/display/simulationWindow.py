@@ -1,7 +1,7 @@
 
 
 class SimulationWindow():
-    def __init__(self, window_w, window_h, world_w, world_h, cam_x, cam_y, shared_buf_name, event_ready, event_close, option_queue, action_queue) -> None:
+    def __init__(self, window_w, window_h, world_w, world_h, cam_speed, cam_x, cam_y, shared_buf_name, event_ready, event_close, option_queue, action_queue) -> None:
         self.shared_buf_name = shared_buf_name
         self.window_w = window_w
         self.window_h = window_h
@@ -13,7 +13,7 @@ class SimulationWindow():
         self.action_queue = action_queue
         self.cam_x = cam_x
         self.cam_y = cam_y
-        self.cam_speed = 10
+        self.cam_speed = cam_speed
         self.zoom = 1.
 
     def run(self):

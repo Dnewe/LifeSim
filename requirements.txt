@@ -1,1 +1,9 @@
 noise
+matplotlib
+numpy
+pygame
+yaml
+pandas
+scikit-learn
+scipy
+seaborn

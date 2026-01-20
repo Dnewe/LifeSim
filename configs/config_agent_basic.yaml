@@ -30,7 +30,7 @@ dna:
     regeneration: {min: 0, max: 0.5, factor: 0.01, expr: "1"}
     damage: {min: 0, max: None, factor: 2, expr: "1"}
     # physiological (energy & mating)
-    lifespan: {min: 1, max: None, factor: 2000, expr: "morphology"} # changed from  morphology**0.25 * physiology**0.75
+    max_age: {min: 1, max: None, factor: 2000, expr: "morphology"} # changed from  morphology**0.25 * physiology**0.75
     max_energy: {min: 1, max: None, factor: 1000, expr: "morphology"}
     energy_to_reproduce: {min: 1, max: None, factor: 500, expr: "morphology**0.75"}
     maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.5"}

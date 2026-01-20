@@ -53,8 +53,9 @@ if __name__=="__main__":
 
     ### Display Metrics process
     genes = list(agent_config['dna']['genes'].keys())
+    actions = list(agent_config['brain']['utility_scores'].keys())
     metrics = Metrics(genes, step_freq=metrics_config['update_step_freq'])
-    metrics_window = MetricsWindow(genes, metrics.queue, event_close, time_freq= metrics_config['window_update_time_freq'])
+    metrics_window = MetricsWindow(genes, actions, metrics.queue, event_close, time_freq= metrics_config['window_update_time_freq'])
     metrics_window_proc = Process(
         target = metrics_window.run
     )

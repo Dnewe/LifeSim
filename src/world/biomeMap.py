@@ -25,6 +25,7 @@ class BiomeMap():
         self.n_biomes = len(self.biomes_params)
         self.food_size_factor = (food_base_size / food_base_energy )**0.5
         self.food_color = food_base_color
+        self.food_base_energy = food_base_energy
         # arrays
         self.biome_arr = np.zeros((w,h)).astype(np.uint8)
         self.food_arr = np.zeros((w,h)).astype(np.uint16)
@@ -83,7 +84,7 @@ class BiomeMap():
         region = self.food_arr[xmin:xmax, ymin:ymax]
         xs, ys = np.where(region > 0)
         if len(xs) == 0:
-            return None, 0
+            return None, radius
         xs += xmin
         ys += ymin
         dx = xs - x
@@ -92,7 +93,7 @@ class BiomeMap():
         i = np.argmin(dist)
         # check if in circle radius
         if dist[i] > radius:
-            return None, 0
+            return None, radius
         return (xs[i], ys[i]), dist[i]
         
     

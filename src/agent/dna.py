@@ -31,7 +31,7 @@ class DNA():
     max_health: float
     regeneration: float
     # physiological (energy & mating)
-    lifespan: float
+    max_age: float
     max_energy: float
     energy_to_reproduce: float
     maturity_age: float
@@ -90,9 +90,11 @@ class DNA():
             value = self._clamp_value(value, rules["min"], rules["max"])
             setattr(self, name, value)
     
-    def mutate(self, scale_factor=1.):
+    def mutate(self, scale_factor= 1., n_genes= 1):
         # TODO other types of mutation
-        for k, rules in self.gene_rules.items():
+        genes = np.random.choice(list(self.gene_rules.keys()), n_genes) if n_genes>=0 else self.gene_rules.keys()
+        for k in genes:
+            rules = self.gene_rules[k]
             if rules['mutable']:
                 scale = rules['mutation_factor'] * self.mutation_scale * scale_factor
                 if rules['type'] == 'continuous':

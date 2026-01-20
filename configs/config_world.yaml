@@ -1,14 +1,14 @@
 
 ### Initial condition
-n_agents: 20
-n_food_spawns: 15
+n_agents: 100
+n_food_spawns: 10
 
 ### Speciation
 speciation:
-  speciation_cutoff: 2.5
-  reassign_species: True  # whether species can be changed after birth
+  speciation_cutoff: 3.2
+  reassign_species: False  # whether species can be changed after birth
   alpha: 1.0
-  representative_update_freq: 100
+  representative_update_freq: 500
 
 ### Food
 food:
@@ -21,16 +21,16 @@ food:
 ### World
 worldgen:
   # scale
-  height: 3000 #1440
-  width: 3000 #2560
-  grid_cell_size: 50
+  height: 2000 #1440
+  width: 2000 #2560
+  grid_cell_size: 60
   # biomes
-  noise_map: {scale: 0.0003, octaves: 3}
+  noise_map: {scale: 0.0004, octaves: 3}
   biomes: 
     dense: {spawn_order: 1, spawn_rate: 0.25, food_spawn_rate_factor: 3.0, food_energy_factor: 0.5, color: [0, 90, 0]}
     normal: {spawn_order: 2, spawn_rate: 0.1, food_spawn_rate_factor: 1.5, food_energy_factor: 1.0, color: [0, 60, 0]}
-    sparse: {spawn_order: 3, spawn_rate: 0.15, food_spawn_rate_factor: 0.25, food_energy_factor: 4.0, color: [0, 30, 0]}
-    void: {spawn_order: 4, spawn_rate: 1., food_spawn_rate_factor: 0.1, food_energy_factor: 10., color: [0, 10, 0]}
+    sparse: {spawn_order: 3, spawn_rate: 0.15, food_spawn_rate_factor: 0.2, food_energy_factor: 4.0, color: [0, 30, 0]}
+    void: {spawn_order: 4, spawn_rate: 1., food_spawn_rate_factor: 0.1, food_energy_factor: 8., color: [0, 10, 0]}
 
 
 

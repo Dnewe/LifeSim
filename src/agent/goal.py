@@ -1,7 +1,7 @@
 
 import utils.pos_utils as posUtils
 import numpy as np
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Type
 if TYPE_CHECKING:
     from world.world import World
     from agent.agent import Agent
@@ -15,17 +15,21 @@ ATTACKING_IDLE_TIME = 10
 
 
 class Goal():
-    def __init__(self, **kwargs) -> None:
-        self.kwargs = kwargs 
+    var_names = []
+    def __init__(self, context={}) -> None:
+        self.context = context 
         self.completed = False
 
     def exec(self, agent: 'Agent', world:'World'):
         self.cost = 0
     
+    def is_valid(self) -> bool:
+        return all(self.context[v] is not None for v in self.var_names)
+    
     
 class IdleGoal(Goal):  
     def exec(self, agent: 'Agent', world:'World'):
-        SENSE_COST_FACTOR = 0.1
+        SENSE_COST_FACTOR = 0.5
         self.cost = agent.dna.idle_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
 
 
@@ -44,23 +48,25 @@ class WanderGoal(Goal):
         
 
 class FollowGoal(Goal):
+    var_names = ['nearest_ally']
     def exec(self, agent: 'Agent', world:'World'):
-        agent.walk(self.kwargs['partner'].get_pos())
+        agent.walk(self.context[self.var_names[0]].get_pos())
         SENSE_COST_FACTOR = 0.5
         self.cost = agent.dna.step_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
 
 
 class EatGoal(Goal):
+    var_names = ['nearest_food', 'nearest_food_dist']
     def exec(self, agent: 'Agent', world:'World'):
-        if self.kwargs['food_dist'] < agent.dna.size + world.foodmap.get_food_size(self.kwargs['food_pos']):
-            self._eat(self.kwargs['food_pos'], agent, world)
+        if self.context[self.var_names[1]] < (agent.dna.size + world.foodmap.get_food_size(self.context[self.var_names[0]])) / agent.dna.vision_range:
+            self._eat(self.context[self.var_names[0]], agent, world)
             agent.idle_time = EATING_IDLE_TIME
             IDLE_COST_FACTOR = 1
             self.cost = agent.dna.idle_cost * IDLE_COST_FACTOR
-            if world.foodmap.get_food_energy(self.kwargs['food_pos']) <=0 or agent.energy >= agent.dna.max_energy:
+            if world.foodmap.get_food_energy(self.context[self.var_names[0]]) <=0 or agent.energy >= agent.dna.max_energy:
                 self.completed = True
         else:
-            agent.walk(self.kwargs['food_pos'])
+            agent.walk(self.context[self.var_names[0]])
             SENSE_COST_FACTOR = 1.
             self.cost = agent.dna.step_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
 
@@ -72,22 +78,29 @@ class EatGoal(Goal):
 
         
 class ReproduceGoal(Goal):
+    #var_names = ['nearest_ally', 'nearest_ally_dist'] TODO 
     def exec(self, agent: 'Agent', world: 'World'):
         if agent.dna.reproduction == 'clone':
-            self._clone(agent, world)
+            if agent.ready_to_reproduce:
+                self._clone(agent, world)
+                self.completed = True
             SENSE_COST_FACTOR = 10.
             self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR    # cloning cost handled by agent.reproduce()
-            self.completed = True
         elif agent.dna.reproduction == 'mate':
-            if self.kwargs['partner_dist'] < agent.dna.size + self.kwargs['partner'].dna.size:
-                self._mate(agent, self.kwargs['partner'], world)
+            partner, partner_dist = self.context[self.var_names[0]], self.context[self.var_names[1]]
+            if partner_dist < (agent.dna.size + partner.dna.size) / agent.dna.vision_range:
+                if agent.ready_to_reproduce and partner.ready_to_reproduce:
+                    self._mate(agent, partner, world)
+                    self.completed = True
                 SENSE_COST_FACTOR = 10.
                 self.cost = agent.dna.sense_cost * SENSE_COST_FACTOR    # mating cost handled by agent.reproduce()
-                self.completed = True
             else:
-                agent.walk(self.kwargs['partner'].get_pos())
+                agent.walk(partner.get_pos())
                 SENSE_COST_FACTOR = 1.
                 self.cost = agent.dna.step_cost + agent.dna.sense_cost 
+                
+    def is_valid(self) -> bool:
+        return self.context['ready_to_reproduce']
     
     def _clone(self, other: 'Agent', world: 'World'):
         other.reproduce()
@@ -104,8 +117,9 @@ class ReproduceGoal(Goal):
     
 
 class FleeGoal(Goal):
+    var_names = ['nearest_enemy']
     def exec(self, agent: 'Agent', world: 'World'):
-        pos_to_flee = self.kwargs['pos_to_flee']
+        pos_to_flee = self.context[self.var_names[0]].get_pos()
         target_pos = posUtils.opposite(agent.get_pos(), pos_to_flee)
         agent.walk(target_pos)
         SENSE_COST_FACTOR = 2.
@@ -116,18 +130,30 @@ class AttackGoal(Goal):
     """
     Attack based on dna distance
     """
+    var_names = ['nearest_enemy', 'nearest_enemy_dist']
     def exec(self, agent: 'Agent', world: 'World'):
-        if self.kwargs['target_dist'] < agent.dna.size + self.kwargs['target'].dna.size:
-            self._attack(agent, self.kwargs['target'], world)
+        if self.context[self.var_names[1]] < (agent.dna.size + self.context[self.var_names[0]].dna.size)/ agent.dna.vision_range:
+            self._attack(agent, self.context[self.var_names[0]], world)
             agent.idle_time = ATTACKING_IDLE_TIME
             STEP_COST_FACTOR = 3.
             SENSE_COST_FACTOR = 2.
             self.cost = agent.dna.step_cost * STEP_COST_FACTOR + agent.dna.sense_cost * SENSE_COST_FACTOR
             self.completed = True
         else:
-            agent.walk(self.kwargs['target'].get_pos())
+            agent.walk(self.context[self.var_names[0]].get_pos())
             SENSE_COST_FACTOR = 1.
             self.cost = agent.dna.step_cost + agent.dna.sense_cost * SENSE_COST_FACTOR
             
     def _attack(self, agent: 'Agent', target: 'Agent', world: 'World'):
         target.health -= agent.dna.damage
+        
+        
+GOALS_MAP: Dict[str, Type[Goal]] = {
+    'idle': IdleGoal,
+    'wander': WanderGoal,
+    'follow': FollowGoal,
+    'eat': EatGoal,
+    'reproduce': ReproduceGoal,
+    'flee': FleeGoal,
+    'attack': AttackGoal,
+}

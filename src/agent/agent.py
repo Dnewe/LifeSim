@@ -32,10 +32,11 @@ class Agent():
     @classmethod
     def from_config(cls, config):
         dna = DNA.from_config(config['dna'])
-        dna.mutate(config['initial_mutation_scale'])
+        dna.mutate(config['initial_dna_mutation_scale'], n_genes=-1)
         brain = Brain.from_config(config['brain'])
+        #brain.mutate(config['initial_brain_mutation_scale'], n_weights= 1)
         energy = dna.max_energy*0.75
-        rdm_age = np.random.randint(0, int(dna.lifespan*0.5))
+        rdm_age = np.random.randint(0, int(dna.max_age*0.5))
         return cls(dna, brain, pos=posUtils.random_pos(), gen=0, energy=energy, age=rdm_age)
     
     @classmethod
@@ -44,6 +45,7 @@ class Agent():
         if mutate: dna.mutate()
         dna.compute_attributes()
         brain = Brain.clone(other.brain)
+        if mutate: brain.mutate(scale = 0.2, n_weights= 1) # TODO
         pos = other.get_pos()
         gen = other.generation + 1
         species = -1 # other.species
@@ -103,8 +105,8 @@ class Agent():
         self.energy = min(self.energy, self.dna.max_energy)
         self.satiety = min(self.satiety, self.dna.max_satiety)
         # alive / dead
-        if self.energy <= 0 or self.age >= self.dna.lifespan or self.health <= 0:
-            print(f'died at: lifespan-age={int(self.dna.lifespan - self.age)}, energy={int(self.energy)}, health={int(self.health)}')
+        if self.energy <= 0 or self.age >= self.dna.max_age or self.health <= 0:
+            print(f'died at: max_age-age={int(self.dna.max_age - self.age)}, energy={int(self.energy)}, health={int(self.health)}')
             self.die()
         # attributes
         if self.satiety > 0:
@@ -142,6 +144,7 @@ class Agent():
 
     def die(self):   
         self.death_reason = "starvation" if self.energy <= 0 else "killed" if self.health <= 0 else "age"
+        self.energy //= 2
         self.alive = False
         
     def walk(self, dest_pos, speed_factor=1.) -> bool:
