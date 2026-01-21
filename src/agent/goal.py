@@ -63,7 +63,7 @@ class FollowGoal(Goal):
 class EatGoal(Goal):
     var_names = ['nearest_food', 'nearest_food_dist']
     def exec(self, agent: 'Agent', world:'World'):
-        if self.context[self.var_names[1]] < (agent.genome.size + world.foodmap.get_food_size(self.context[self.var_names[0]])) / agent.genome.vision_range:
+        if self.context[self.var_names[1]] + 0.5 < (agent.genome.size + world.foodmap.get_food_size(self.context[self.var_names[0]])) / agent.genome.vision_range:
             self._eat(self.context[self.var_names[0]], agent, world)
             agent.idle_time = EATING_IDLE_TIME
             IDLE_COST_FACTOR = 1
@@ -92,7 +92,7 @@ class ReproduceGoal(Goal):
             SENSE_COST_FACTOR = 10.
             self.cost = agent.genome.sense_cost * SENSE_COST_FACTOR    # cloning cost handled by agent.reproduce()
         elif agent.genome.reproduction == 'mate':
-            partner, partner_dist = self.context[self.var_names[0]], self.context[self.var_names[1]]
+            partner, partner_dist = self.context[self.var_names[0]], self.context[self.var_names[1]] + 0.5 # TODO
             if partner_dist < (agent.genome.size + partner.genome.size) / agent.genome.vision_range:
                 if agent.ready_to_reproduce and partner.ready_to_reproduce:
                     self._mate(agent, partner, world)
@@ -138,7 +138,7 @@ class AttackGoal(Goal):
     """
     var_names = ['nearest_enemy', 'nearest_enemy_dist']
     def exec(self, agent: 'Agent', world: 'World'):
-        if self.context[self.var_names[1]] < (agent.genome.size + self.context[self.var_names[0]].genome.size)/ agent.genome.vision_range:
+        if self.context[self.var_names[1]] + 0.5 < (agent.genome.size + self.context[self.var_names[0]].genome.size)/ agent.genome.vision_range:
             self._attack(agent, self.context[self.var_names[0]])
             agent.idle_time = ATTACKING_IDLE_TIME
             STEP_COST_FACTOR = 3.

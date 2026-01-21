@@ -3,13 +3,14 @@ if TYPE_CHECKING:
     from agent.agent import Agent
     from world.world import World
     from agent.genome import Genome
-    from agent.brain.brain import Brain
 from collections import defaultdict
 import numpy as np
+import utils.timeperf as timeperf
 
 
 class GeneticContext:
-    def __init__(self, genes, actions_inputs) -> None:
+    def __init__(self, genes, actions_inputs, update_freq=50) -> None:
+        self.update_freq = update_freq
         # gene index
         self.genes = list(genes)
         self.n_genes = len(self.genes)
@@ -34,10 +35,11 @@ class GeneticContext:
     def from_config(cls, config):
         genes = config['genome']['genes'].keys()
         actions_inputs = {a: [inp for inp in inputs] for a, inputs in config['brain']['utility_scores'].items()}
-        return cls(genes, actions_inputs)
+        return cls(genes, actions_inputs, config['gc_update_freq'])
     
+    @timeperf.timed()
     def update(self, world: 'World', global_only=False):
-        if world.n_agents > 0:
+        if world.step_count % self.update_freq == 0 and world.n_agents > 0:
             self.update_gene_stats(world.agents, global_only)
             self.update_brain_stats(world.agents, global_only)
     
