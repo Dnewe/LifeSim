@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from agent.agent import Agent
     from world.world import World
 from geneticContext import GeneticContext
+import utils.timeperf as timeperf
 
 
 class Species:
@@ -31,7 +32,8 @@ class Speciator:
     @classmethod
     def from_config(cls, gc: GeneticContext, config):
         return cls(gc, config['speciation_cutoff'], config['alpha'], config['reassign_species'], config['representative_update_freq'])
-        
+    
+    @timeperf.timed()
     def update(self, world: 'World'):
         self.assign_species(world, self.reassign_species)
         if world.step_count % self.representative_update_freq == 0:

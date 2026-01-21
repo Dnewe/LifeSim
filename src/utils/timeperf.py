@@ -32,5 +32,5 @@ def print_global():
     total = time.perf_counter() - beginning
     print("Performance time (global)")
     for name, t in TIMINGS.items():
-        print(f"{name}: {t / total:.2%}")
+        print(f"    {name}: {t / total:.2%}")
     

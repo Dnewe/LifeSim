@@ -1,7 +1,7 @@
 
-
+gc_update_freq: 50
 initial_genome_mutation_factor: 2
-initial_brain_mutation_factor: 2
+initial_brain_mutation_factor: 5
 
 ### Brain
 #brain:
@@ -15,8 +15,8 @@ brain:
   utility_scores:
     idle: {'energy': 0, 'satiety': 0, 'age': 0, 'gamma': 0, 'bias': 0}
     wander: {'energy': 0, 'satiety': 0, 'n_allies': 0, 'n_enemies': 0, 'nearest_enemy_dist': 0, 'gamma': 0, 'bias': 0}
-    eat: {'nearest_food_dist': 0, 'nearest_food_energy': 0, 'energy': 0, 'satiety': 0, 'gamma': 0, 'bias': 3}
-    reproduce: {'ready_to_reproduce': 0, 'age': 0, 'energy': 0, 'gamma': 0, 'bias': 4}
+    eat: {'nearest_food_dist': 0, 'nearest_food_energy': 0, 'energy': 0, 'satiety': 0, 'gamma': 0, 'bias': 0}
+    reproduce: {'ready_to_reproduce': 0, 'age': 0, 'energy': 0, 'gamma': 0, 'bias': 0}
     follow: {'nearest_ally_dist': 0, 'n_allies': 0, 'n_enemies': 0, 'gamma': 0, 'bias': 0}
     flee: {'health': 0, 'n_allies': 0, 'n_enemies': 0, 'nearest_ally_dist': 0, 'nearest_enemy_dist': 0, 'gamma': 0, 'bias': 0}
     attack: {'energy': 0, 'health': 0, 'n_allies': 0, 'n_enemies': 0, 'nearest_ally_dist': 0, 'nearest_enemy_dist': 0, 'gamma': 0, 'bias': 0}
@@ -43,7 +43,7 @@ genome:
     regeneration: {min: 0, max: 0.5, factor: 0.01, expr: "metabolism**0.5 * physiology**0.5 / morphology**0.25"}
     damage: {min: 0, max: None, factor: 2, expr: "morphology**0.5 * physiology**0.5"}
     # physiological (energy & mating)
-    max_age: {min: 1, max: None, factor: 5000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
+    max_age: {min: 1, max: None, factor: 10000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
     max_energy: {min: 1, max: None, factor: 1000, expr: "morphology**1 * physiology**0.5 * metabolism **0.25"}
     energy_to_reproduce: {min: 1, max: None, factor: 400, expr: "morphology**0.6 * physiology**0.5"}
     maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.25 * physiology**0.5"}
@@ -51,7 +51,7 @@ genome:
     # alimentation
     max_satiety: {min: 0, max: None, factor: 200, expr: "metabolism**0.75 * morphology**0.5"}
     satiety_gain: {min: 0, max: 1, factor: 0.5, expr: "metabolism**0.5 * morphology**0.25 - 0.8"}
-    metabolism_efficiency: {min: 0, max: 1, factor: 0.6, expr: "metabolism**0.4 * physiology**0.1"}
+    metabolism_efficiency: {min: 0, max: 1, factor: 0.6, expr: "metabolism**0.5 * physiology**0.1"}
     # TODO eating_speed
     # sensory
     vision_range: {min: 1, max: None, factor: 75, expr: "sensorial**0.5 * morphology**0.25"}

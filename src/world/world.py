@@ -5,6 +5,7 @@ from agent.agent import Agent
 from world.foodMap import FoodMap
 from geneticContext import GeneticContext
 from speciator import Speciator
+import utils.timeperf as timeperf
 
 
 class World():
@@ -93,6 +94,7 @@ class World():
     def get_nearest_food(self, pos, radius: int) -> Tuple[posUtils.Pos|None, float]:
         return self.foodmap.get_nearest_food(pos, radius)
     
+    @timeperf.timed()
     def get_near_agents(self, from_agent: Agent, radius: int) -> List[Tuple[Agent, float]]:
         '''
         Get agents in radius around an agent,

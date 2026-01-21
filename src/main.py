@@ -11,6 +11,7 @@ from world.world import World
 from display.frame import Frame
 from optionHandler import ActionHandler
 import utils.pos_utils as posUtils
+import utils.timeperf as timeperf
 
 
 def loop(world, metrics, frame, actionHandler, event_ready, event_close):
@@ -25,6 +26,8 @@ def loop(world, metrics, frame, actionHandler, event_ready, event_close):
             event_ready.set()
             actionHandler.update_options(frame)
             prev_time = time.time_ns()
+    timeperf.print_relative()
+    timeperf.print_global()
 
 
 if __name__=="__main__":

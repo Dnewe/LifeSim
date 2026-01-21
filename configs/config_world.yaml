@@ -1,6 +1,6 @@
 
 ### Initial condition
-n_agents: 400
+n_agents: 200
 n_food_spawns: 10
 
 ### Speciation
@@ -21,8 +21,8 @@ food:
 ### World
 worldgen:
   # scale
-  height: 3000 #1440
-  width: 3000 #2560
+  height: 2000 #1440
+  width: 2000 #2560
   grid_cell_size: 40
   # biomes
   noise_map: {scale: 0.0004, octaves: 3}

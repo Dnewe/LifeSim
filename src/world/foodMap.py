@@ -5,6 +5,7 @@ from noise import snoise2
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from world.world import World
+import utils.timeperf as timeperf
 
 
 class FoodMap():
@@ -31,7 +32,7 @@ class FoodMap():
         self.food_size_factor = (food_base_size / energy )**0.5
         self.food_color = food_base_color
         self.food_base_energy = energy
-        # arrays
+        # data
         self.biome_arr = np.zeros((w,h)).astype(np.uint8)
         self.food_arr = np.zeros((w,h)).astype(np.uint16)
         self.biome_LUT = self._get_biome_LUT()
@@ -64,7 +65,8 @@ class FoodMap():
         noise_grid = ((noise_grid + 1)*(0.5)).astype(np.float32)
         for k, rules in reversed(list(self.biomes_params.items())):   # biomes in reverse order of spawn order
             self.biome_arr[noise_grid < rules['spawn_thresh']] = k
-            
+        
+    @timeperf.timed() 
     def spawn_food(self, n_spawns=1):
         for biome_id, params in self.biomes_params.items():
             mask = (self.biome_arr == biome_id)
@@ -83,8 +85,9 @@ class FoodMap():
     
     def get_food_size(self, pos):
         return int(self.food_size_factor * self.food_arr[*pos]**0.5)
-    
-    def get_nearest_food(self, pos, radius) -> Tuple[posUtils.Pos|None, float]:
+        
+    @timeperf.timed()
+    def get_nearest_food(self, pos, radius:int) -> Tuple[posUtils.Pos|None, float]:
         x, y = pos
         xmin, xmax, ymin, ymax = posUtils.square(pos, radius)
         region = self.food_arr[xmin:xmax, ymin:ymax]
@@ -95,13 +98,13 @@ class FoodMap():
         ys += ymin
         dx = xs - x
         dy = ys - y
-        dist = np.hypot(dx, dy)
-        i = np.argmin(dist)
-        # check if in circle radius
-        if dist[i] > radius:
+        dist2 = dx*dx + dy*dy
+        i = np.argmin(dist2)
+        if dist2[i] > radius*radius:
             return None, radius
-        return (xs[i], ys[i]), dist[i]
+        return (xs[i], ys[i]), np.sqrt(dist2[i])
     
+    @timeperf.timed()
     def update(self, world: 'World'):
         if world.step_count % self.spawn_freq == 0 :
             self.spawn_food()

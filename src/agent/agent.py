@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 from agent.goal import REPRODUCE_IDLE_TIME, IdleGoal, Goal, GOALS_MAP
 from agent.genome import Genome
 from agent.brain.brain import Brain
+import utils.timeperf as timeperf
 
 
 class Agent():
@@ -60,7 +61,7 @@ class Agent():
         brain = Brain.from_brain1_brain2(agent1.brain, agent2.brain)
         pos = posUtils.midpoint(agent1.get_pos(), agent2.get_pos())
         gen = max(agent1.generation, agent2.generation)+1
-        species = np.random.choice([agent1.species, agent2.species])
+        species = -1 # unassigned species 
         energy = agent1.genome.energy_to_reproduce + agent2.genome.energy_to_reproduce
         return cls(genome, brain, pos, gen, energy=energy, species=species)
 
@@ -86,10 +87,12 @@ class Agent():
     def sense(self, world: 'World'):
         self.brain.sense(self, world)
 
+    @timeperf.timed()
     def decide(self):
         action = self.brain.decide() if self.idle_time<=0 else 'idle'
         self.goal = GOALS_MAP[action](self.brain.context)
 
+    @timeperf.timed()
     def act(self, world):
         self.goal.exec(self, world)
         self.update()
