@@ -36,14 +36,12 @@ class UtilityScore:
         for k in weights_to_change:
             if k == 'gamma':
                 delta = np.random.normal(0, 0.1 * scale)
-                self.context_weights[k] += delta
-                self.context_weights[k] = max(min(self.context_weights[k], MAX_G), MIN_G)
+                g = self.context_weights[k] + delta
+                self.context_weights[k] = max(min(g, MAX_G), MIN_G)
             else:
                 delta = np.random.normal(0, (MAX_W - MIN_W) * scale / 6)
                 self.context_weights[k] += delta
                 self.context_weights[k] = max(min(self.context_weights[k], MAX_W), MIN_W)
-            self.context_weights[k] += (np.random.normal(0, scale)) * (MAX_W - MIN_W) * scale
-            self.context_weights[k] = max(min(self.context_weights[k], MAX_W), MIN_W)
             
 
 class UtilityFunBrain(Brain):

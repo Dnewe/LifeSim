@@ -48,23 +48,23 @@ class Brain(ABC):
         nearest_food_energy = world.foodmap.get_food_energy(nearest_food) if nearest_food is not None else 0
         return {
             # agent variables
-            'energy': agent.energy / agent.genome.max_energy,
-            'satiety': agent.satiety / agent.genome.max_satiety,
-            'health': agent.health / agent.genome.max_health,
-            'age': agent.age / agent.genome.max_age,
-            'ready_to_reproduce': int(agent.ready_to_reproduce),
+            'energy': agent.energy / agent.genome.max_energy - 0.5,
+            'satiety': agent.satiety / agent.genome.max_satiety - 0.5,
+            'health': agent.health / agent.genome.max_health - 0.5,
+            'age': agent.age / agent.genome.max_age - 0.5,
+            'ready_to_reproduce': int(agent.ready_to_reproduce) - 0.5,
             # agent properties
             'self_genome': agent.genome,
             # environment
-            'n_allies': len(near_allies) / 10,
-            'n_enemies': len(near_enemies) / 10,
+            'n_allies': len(near_allies) / 10  - 0.5,
+            'n_enemies': len(near_enemies) / 10  - 0.5,
             'nearest_ally': near_allies[0][0] if len(near_allies)>0 else None,
-            'nearest_ally_dist': near_allies[0][1] / agent.genome.vision_range if len(near_allies)>0 else 1., 
+            'nearest_ally_dist': near_allies[0][1] / agent.genome.vision_range - 0.5 if len(near_allies)>0 else 0.5, 
             'nearest_enemy': near_enemies[0][0] if len(near_enemies)>0 else None,
-            'nearest_enemy_dist': near_enemies[0][1] / agent.genome.vision_range if len(near_enemies)>0 else 1., 
+            'nearest_enemy_dist': near_enemies[0][1] / agent.genome.vision_range - 0.5 if len(near_enemies)>0 else 0.5, 
             'nearest_food': nearest_food,
-            'nearest_food_dist': nearest_food_dist / agent.genome.vision_range,
-            'nearest_food_energy': nearest_food_energy / world.foodmap.food_base_energy,
+            'nearest_food_dist': nearest_food_dist / agent.genome.vision_range - 0.5,
+            'nearest_food_energy': nearest_food_energy / world.foodmap.food_base_energy - 0.5,
         }
     
     def sense(self, agent, world):
