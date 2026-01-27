@@ -2,28 +2,31 @@ import numpy as np
 
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
-    from agent.genome import Genome
     from agent.agent import Agent
     from world.world import World
+    from geneticContext import GeneticContext
+from agent.genome import Genome
+from agent.brain.brain import Brain
 from geneticContext import GeneticContext
 import utils.timeperf as timeperf
 
 
 class Species:
-    def __init__(self, representative_genome: 'Genome', _id) -> None:
+    def __init__(self, representative: 'Agent', _id) -> None:
         self.id = _id
-        self.genome = representative_genome
+        self.representative = representative
         self.members: List['Agent'] = []
 
 
 class Speciator:
     gc: GeneticContext
-    def __init__(self, gc, speciation_cutoff= 4.0, alpha= 1.0, reassign_species=True, representative_update_freq=100) -> None:
+    def __init__(self, gc, speciation_cutoff= 4.0, genome_brain_ratio=0.5, alpha= 1.0, reassign_species=True, update_freq=100) -> None:
         self.gc = gc
         self.speciation_cutoff = speciation_cutoff
+        self.genome_brain_ratio = genome_brain_ratio
         self.alpha = alpha
         self.reassign_species = reassign_species
-        self.representative_update_freq = representative_update_freq
+        self.update_freq = update_freq
         # species
         self.species:List[Species] = []
         self.n_species = 0
@@ -31,14 +34,14 @@ class Speciator:
         
     @classmethod
     def from_config(cls, gc: GeneticContext, config):
-        return cls(gc, config['speciation_cutoff'], config['alpha'], config['reassign_species'], config['representative_update_freq'])
+        return cls(gc, config['speciation_cutoff'], config['genome_brain_ratio'], config['alpha'], config['reassign_species'], config['representative_update_freq'])
     
     @timeperf.timed()
     def update(self, world: 'World'):
-        self.assign_species(world, self.reassign_species)
-        if world.step_count % self.representative_update_freq == 0:
+        if world.step_count % self.update_freq == 0:
+            self.assign_species(world, self.reassign_species)
             self.refresh_representatives()
-        self.n_species = len(self.species)
+            self.n_species = len(self.species)
     
     def assign_species(self, world: 'World', reassign=True):
         for s in self.species:
@@ -51,7 +54,7 @@ class Speciator:
             closest_species = None
             min_distance = float("inf")
             for species in self.species:
-                d = self.genome_distance(a.genome, species.genome)
+                d = self.agent_distance(a, species.representative, self.gc) # Genome.distance(a.genome, species.representative.genome, self.gc.genes_std, alpha=self.alpha) + Brain.distance(a.brain)
                 if d < min_distance:
                     min_distance = d
                     closest_species = species
@@ -60,48 +63,40 @@ class Speciator:
                 closest_species.members.append(a)
             else:
                 # new species
-                s = Species(a.genome, self.next_species_id)
+                s = Species(a, self.next_species_id)
                 self.next_species_id += 1
                 s.members.append(a)
                 self.species.append(s)
                 a.species = s.id
+                print(f'New species {s.id}')
         self.species = [s for s in self.species if s.members]
     
     def refresh_representatives(self):
         for s in self.species:
             if len(s.members) <= 2:
-                s.genome = s.members[0].genome
+                s.representative = s.members[0]
             else:
-                s.genome = self.choose_medoid(s)
-                
-    def genome_distance(self, genome1: 'Genome', genome2: 'Genome', eps=1e-9):
-        v1, keys = self.genome_vector(genome1)
-        v2, _    = self.genome_vector(genome2)
-        stds = self.gc.genes_std
-        weights = np.array([1.0 for k in keys]) # TODO weights for genes
-        # normalized euclidean
-        diff = (v1 - v2) / (stds + eps)
-        euclid = np.sqrt(np.sum(weights * diff * diff))
-        # cosine distance (directional)
-        cosine = 1.0 - np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + eps)
-        return euclid * (1.0 + self.alpha * cosine)   
+                s.representative = self.choose_medoid(s) 
                 
     def choose_medoid(self, species: 'Species'):
         members = species.members
-        best_genome = members[0].genome
+        best_agent = members[0]
         best_score = float("inf")
         for a in members:
             score = 0.0
             for b in members:
                 if a is b:
                     continue
-                score += self.genome_distance(a.genome, b.genome)
+                score += self.agent_distance(a, species.representative, self.gc) # Genome.distance(a.genome, b.genome, self.gc.genes_std, alpha=self.alpha)
             if score < best_score:
                 best_score = score
-                best_genome = a.genome
-        return best_genome
+                best_agent = a
+        return best_agent
     
-    def genome_vector(self, genome: 'Genome'):
-        keys = sorted(genome.gene_values.keys())
-        return np.array([np.log1p(genome.gene_values[k]) for k in keys]), keys
+    def agent_distance(self, agent1:'Agent', agent2:'Agent', gc:'GeneticContext'):
+        d_genome = Genome.distance(agent1.genome, agent2.genome, gc.genes_std, alpha=self.alpha)
+        d_brain = Brain.distance(agent1.brain, agent2.brain, gc.brains_std, alpha=self.alpha)
+        return d_genome * self.genome_brain_ratio + d_brain * (1-self.genome_brain_ratio)
+        
+        
         

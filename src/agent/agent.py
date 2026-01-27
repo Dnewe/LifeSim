@@ -9,6 +9,9 @@ from agent.genome import Genome
 from agent.brain.brain import Brain
 import utils.timeperf as timeperf
 
+# proportion of agent energy spawned as food upon death
+DEATH_ENERGY_PROP = 1.
+
 
 class Agent():
     # pos
@@ -24,7 +27,7 @@ class Agent():
     species: int
     age:int
     # actions
-    ready_to_reproduce:bool
+    can_reproduce:bool
     goal:Goal
     idle_time: int
     wander_pos:posUtils.Pos|None
@@ -36,7 +39,7 @@ class Agent():
         genome.mutate(config['initial_genome_mutation_factor'], n_mutations= -1)
         brain = Brain.from_config(config['brain'])
         brain.mutate(config['initial_brain_mutation_factor'], n_mutations= -1)
-        energy = genome.max_energy*0.75
+        energy = genome.max_energy * 0.75
         rdm_age = np.random.randint(0, int(genome.max_age*0.5))
         return cls(genome, brain, pos=posUtils.random_pos(), gen=0, energy=energy, age=rdm_age)
     
@@ -77,11 +80,12 @@ class Agent():
         self.health = self.genome.max_health
         self.alive = True
         self.energy = min(self.genome.max_energy, energy)
-        self.satiety = 0
         self.goal = IdleGoal()
+        self.last_action = 'idle'
+        #self.last_action = 'idle'
         self.wander_pos = None
-        self.idle_time = 25
-        self.ready_to_reproduce = False
+        self.idle_time = 0
+        self.can_reproduce = False
         self.reproduce_cooldown = self.genome.reproduce_cooldown - age
 
     def sense(self, world: 'World'):
@@ -89,30 +93,26 @@ class Agent():
 
     @timeperf.timed()
     def decide(self):
-        action = self.brain.decide() if self.idle_time<=0 else 'idle'
-        self.goal = GOALS_MAP[action](self.brain.context)
+        action, args = self.brain.decide() if self.idle_time<=0 else ('idle', None)
+        self.goal = GOALS_MAP[action](args)
+        self.last_action = action
 
     @timeperf.timed()
-    def act(self, world):
-        self.goal.exec(self, world)
+    def act(self):
+        event = self.goal.exec(self)
         self.update()
+        return event
 
     def update(self):
         # clip values
         self.energy = min(self.energy, self.genome.max_energy)
-        self.satiety = min(self.satiety, self.genome.max_satiety)
         # alive / dead
         if self.energy <= 0 or self.age >= self.genome.max_age or self.health <= 0:
             print(f'died at: max_age-age={int(self.genome.max_age - self.age)}, energy={int(self.energy)}, health={int(self.health)}')
             self.die()
-        # decay satiety/energy
-        if self.satiety > self.goal.cost:
-            self.satiety -= self.goal.cost
-        elif self.satiety > 0:
-            self.energy -= self.goal.cost - self.satiety
-            self.satiety = 0
-        else:
-            self.energy -= self.goal.cost
+        # decay energy
+        self.energy -= self.goal.cost
+        # regeneration
         self.health = min(self.genome.max_health, self.health + self.genome.regeneration)
         # timer
         self.age += 1
@@ -120,23 +120,23 @@ class Agent():
         self.reproduce_cooldown = max(0, self.reproduce_cooldown-1)
         # reproduction
         if self.energy >= self.genome.energy_to_reproduce and self.age >= self.genome.maturity_age and self.reproduce_cooldown==0:
-            self.ready_to_reproduce = True
+            self.can_reproduce = True
         elif self.energy < self.genome.energy_to_reproduce:
-            self.ready_to_reproduce = False
+            self.can_reproduce = False
             
     def reproduce(self):
         """
         called when the agent reproduced.
         Reset reproduce variables and apply energy cost
         """
-        self.ready_to_reproduce = False
+        self.can_reproduce = False
         self.reproduce_cooldown = self.genome.reproduce_cooldown
         self.idle_time = REPRODUCE_IDLE_TIME
         self.energy -= self.genome.energy_to_reproduce
 
     def die(self):   
         self.death_reason = "starvation" if self.energy <= 0 else "killed" if self.health <= 0 else "age"
-        self.energy //= 2
+        self.energy *= DEATH_ENERGY_PROP
         self.alive = False
         
     def walk(self, dest_pos, speed_factor=1.) -> bool:

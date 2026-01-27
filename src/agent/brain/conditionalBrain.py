@@ -1,9 +1,10 @@
 import numpy as np
 from copy import deepcopy
 from agent.brain.brain import Brain
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Self
 if TYPE_CHECKING:
     from world.world import World
+from agent.genome import Genome
 
 
 class ConditionalBrain(Brain):
@@ -31,7 +32,7 @@ class ConditionalBrain(Brain):
         
     def sense(self, agent, world: 'World'):
         super().sense(agent, world)
-        self.context['nearest_enemy_genome_dist'] = world.speciator.genome_distance(agent.genome, self.context['nearest_enemy'].genome) if self.context['nearest_enemy'] is not None else 0
+        self.context['nearest_enemy_genome_dist'] = Genome.distance(agent.genome, self.context['nearest_enemy'].genome, world.gc.genes_std) if self.context['nearest_enemy'] is not None else 0
         
     def decide(self):
         if self.context['self_genome'].reproduction == 'mate':
@@ -49,13 +50,13 @@ class ConditionalBrain(Brain):
             self.memory_counter -= 1
             if self.last_action == 'reproduce' and can_reproduce:
                 self.action = 'reproduce'
-                return 'reproduce'
+                return ('reproduce', None) # TODO
             if self.last_action == 'attack' and can_attack and not can_reproduce:
                 self.action = 'attack'
-                return 'attack'
+                return ('attack', None) # TODO
             if self.last_action == 'eat' and can_eat and not can_reproduce:
                 self.action = 'eat'
-                return 'eat' 
+                return ('eat', None) # TODO
         if self.context['self_genome'].reproduction == 'mate':  
             will_reproduce = can_reproduce and self.context['nearest_agent_genome_dist'] < self.context['self_genome'].partner_genome_distance
         else: # clone
@@ -78,10 +79,13 @@ class ConditionalBrain(Brain):
             self.action = 'follow'
         self.last_action = self.action
         self.memory_counter = self.memory_time
-        return self.action
+        return (self.action, None)  # TODO
     
     def mutate(self, scale_factor: float = 0, n_mutations: int | None = -1):
         pass
     
     def get_data(self) -> Dict:
         return {'weight' : 0}
+
+    def to_vector(self) -> np.ndarray:
+        return np.zeros((1))

@@ -1,28 +1,19 @@
 from typing import TYPE_CHECKING, List, Dict
+from collections import defaultdict
+import numpy as np
 if TYPE_CHECKING:
     from agent.agent import Agent
     from world.world import World
-    from agent.genome import Genome
-from collections import defaultdict
-import numpy as np
 import utils.timeperf as timeperf
+from agent.genome import Genome
+from agent.brain.brain import Brain
 
 
 class GeneticContext:
-    def __init__(self, genes, actions_inputs, update_freq=50) -> None:
+    def __init__(self, update_freq=50) -> None:
         self.update_freq = update_freq
-        # gene index
-        self.genes = list(genes)
-        self.n_genes = len(self.genes)
-        self.g_to_idx = {g: i for i,g in enumerate(self.genes)}
-        # brain index
-        self.actions_inputs = actions_inputs
-        self.actions = list(actions_inputs.keys())
-        self.n_actions = len(self.actions)
-        self.actions_inp_to_idx = {a: {inp: i for i, inp in enumerate(actions_inputs[a])} for a in self.actions}
+        self.initialized = False
         # genes
-        self.genes_mean = np.zeros(self.n_genes) # k: gene, v: mean
-        self.genes_std = np.zeros(self.n_genes) # k: gene, v: std
         self.species_genes_mean = {} # k: sid, v: (k: gene, v: mean)
         self.species_genes_std = {} # k: sid, v: (k: gene, v: std)
         # brains
@@ -33,9 +24,7 @@ class GeneticContext:
         
     @classmethod
     def from_config(cls, config):
-        genes = config['genome']['genes'].keys()
-        actions_inputs = {a: [inp for inp in inputs] for a, inputs in config['brain']['utility_scores'].items()}
-        return cls(genes, actions_inputs, config['gc_update_freq'])
+        return cls(config['gc_update_freq'])
     
     @timeperf.timed()
     def update(self, world: 'World', global_only=False):
@@ -43,29 +32,29 @@ class GeneticContext:
             self.update_gene_stats(world.agents, global_only)
             self.update_brain_stats(world.agents, global_only)
     
-    def get_gene_mean(self, gene, species=None):
+    def get_gene_mean(self, gene, species=None) -> float:
         if species is None:
-            return self.genes_mean[self.g_to_idx[gene]]
-        return self.species_genes_mean[species][self.g_to_idx[gene]]
+            return self.genes_mean[Genome.key_to_idx[gene]]
+        return self.species_genes_mean[species][Genome.key_to_idx[gene]]
             
-    def get_gene_std(self, gene, species=None):
+    def get_gene_std(self, gene, species=None) -> float:
         if species is None:
-            return self.genes_std[self.g_to_idx[gene]]
-        return self.species_genes_std[species][self.g_to_idx[gene]]
+            return self.genes_std[Genome.key_to_idx[gene]]
+        return self.species_genes_std[species][Genome.key_to_idx[gene]]
                 
-    def get_action_input_mean(self, action, inp, species=None):
+    def get_brain_mean(self, key, species=None) -> float:
         if species is None:
-            return self.brains_mean[action][self.actions_inp_to_idx[action][inp]]
-        return self.species_genes_mean[species][action][self.actions_inp_to_idx[action][inp]]
+            return self.brains_mean[Brain.key_to_idx[key]]
+        return self.species_genes_mean[species][Brain.key_to_idx[key]]
             
-    def get_action_input_std(self, action, inp, species=None):
+    def get_brain_std(self, key, species=None) -> float:
         if species is None:
-            return self.brains_std[action][self.actions_inp_to_idx[action][inp]]
-        return self.species_genes_std[species][action][self.actions_inp_to_idx[action][inp]]
+            return self.brains_std[Brain.key_to_idx[key]]
+        return self.species_genes_std[species][Brain.key_to_idx[key]]
     
-    def update_gene_stats(self, agents: List['Agent'], gamma_mean=0.4, gamma_std=0.8, eps=1e-9, global_only=False):
+    def update_gene_stats(self, agents: List['Agent'], eps=1e-9, global_only=False):
         # Global
-        X = np.stack([self._genome_to_vector(a.genome) for a in agents])
+        X = np.stack([a.genome.to_vector() for a in agents])
         mean = X.mean(axis=0)
         std = X.std(axis=0) + eps
         self.genes_mean = mean
@@ -82,33 +71,21 @@ class GeneticContext:
             self.species_genes_mean[sid] = Xs.mean(axis=0)
             self.species_genes_std[sid]  = Xs.std(axis=0) + eps
     
-    def update_brain_stats(self, agents: List['Agent'], gamma_mean=0.4, gamma_std=0.8, eps=1e-9, global_only=False):
-        # Stack brains
-        for a in self.actions:
-            B = np.stack([self._weights_to_vector(a, agt.brain.get_data()[a]) for agt in agents])  # (N, W)
-            mean = B.mean(axis=0)
-            std  = B.std(axis=0) + eps
-            self.brains_mean[a] = mean
-            self.brains_std[a]  = std
+    def update_brain_stats(self, agents: List['Agent'], eps=1e-9, global_only=False):
+        B = np.stack([a.brain.to_vector() for a in agents])
+        mean = B.mean(axis=0)
+        std  = B.std(axis=0) + eps
+        self.brains_mean = mean
+        self.brains_std  = std
+        
+        if global_only:
+            return
+        # Per-species
+        species_indices = defaultdict(list)
+        for i, agt in enumerate(agents):
+            species_indices[agt.species].append(i)
 
-            # Per-species
-            species_indices = defaultdict(list)
-            for i, agt in enumerate(agents):
-                species_indices[agt.species].append(i)
-
-            for sid, idx in species_indices.items():
-                Bs = B[idx]
-                self.species_brains_mean[sid][a] = Bs.mean(axis=0)
-                self.species_brains_std[sid][a]  = Bs.std(axis=0) + eps
-            
-    def _genome_to_vector(self, genome: 'Genome'):
-        v = np.empty(self.n_genes, dtype=np.float32)
-        for g, i in self.g_to_idx.items():
-            v[i] = genome.gene_values[g]
-        return v
-    
-    def _weights_to_vector(self, action, weights):
-        v = np.empty(len(weights), dtype=np.float32)
-        for inp, i in self.actions_inp_to_idx[action].items():
-            v[i] = weights[inp]
-        return v
+        for sid, idx in species_indices.items():
+            Bs = B[idx]
+            self.species_brains_mean[sid] = Bs.mean(axis=0)
+            self.species_brains_std[sid]  = Bs.std(axis=0) + eps

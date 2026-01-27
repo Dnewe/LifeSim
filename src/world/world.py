@@ -66,6 +66,7 @@ class World():
             agent = Agent.from_config(self.agent_config)
             self.add_agent(agent)
     
+    ### Events
     
     def add_agent(self, agent:Agent):
         self.n_agents += 1
@@ -84,12 +85,12 @@ class World():
     
     def take_food_energy(self, pos, amount = 5):
         energy = self.foodmap.get_food_energy(pos)
-        amount = min(energy, amount)
         if energy - amount <=0:
             self.foodmap.del_food(pos)
         else:
             self.foodmap.food_arr[pos] = energy - amount
-        return amount
+            
+    ### Getters
     
     def get_nearest_food(self, pos, radius: int) -> Tuple[posUtils.Pos|None, float]:
         return self.foodmap.get_nearest_food(pos, radius)
@@ -121,6 +122,8 @@ class World():
         sorted_agents_dists = [(a,d) for a,d in agents_dists if d<=radius]
         return sorted_agents_dists
     
+    ### Updates
+    
     def update_grid_pos(self, agent: Agent):
         new_cx, new_cy = posUtils.grid_pos(agent.get_pos())
         if new_cx == agent.cell_x and new_cy == agent.cell_y:
@@ -130,12 +133,21 @@ class World():
         agent.cell_x = new_cx
         agent.cell_y = new_cy
         
+    def exec_event(self, event):
+        etype, args = event
+        if etype == 'add_agent':
+            self.add_agent(**args)
+        elif etype == 'eat':
+            self.take_food_energy(**args)
+        
     def step_agents(self):
         for a in self.agents:
             a.sense(self)
             a.decide()
         for a in self.agents:
-            a.act(self)
+            event = a.act()
+            if event is not None:
+                self.exec_event(event)
         dead_agents = [a for a in self.agents if not a.alive]
         for a in dead_agents:
             self.foodmap.add_food(a.get_pos(), a.energy)
@@ -147,7 +159,7 @@ class World():
         self.step_count += 1
         counts = {}
         for a in self.agents:
-            action = a.brain.action
+            action = a.last_action
             self.n_actions_per_type[action] += 1
             sid = a.species
             counts[sid] = counts.get(sid, 0) + 1
@@ -155,10 +167,10 @@ class World():
 
     def step(self):
         self.step_agents()
-        self.gc.update(self)
-        self.speciator.update(self)
-        self.foodmap.update(self)
         self.update_counter()
+        self.speciator.update(self)
+        self.gc.update(self)
+        self.foodmap.update(self)
         
         
         

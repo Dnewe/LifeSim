@@ -175,9 +175,9 @@ class MetricsWindow():
         density_plot(self.mid_ax2, actions_density_df, 'step', 'count', 'action', "Actions density")
         brain_action = getattr(self, 'brain_action').get()
         action_means = metrics['brains_means'][brain_action]
-        action_cvs = metrics['brains_cvs'][brain_action]
+        action_stds = metrics['brains_stds'][brain_action]
         multiline_plot(self.mid_axs3[0], steps, action_means.values(), action_means.keys(), f'{brain_action} mean')
-        multiline_plot(self.mid_axs3[1], steps, action_cvs.values(), action_cvs.keys(), f'{brain_action} CV')
+        multiline_plot(self.mid_axs3[1], steps, action_stds.values(), action_stds.keys(), f'{brain_action} std')
         
         # == Right ==
         x = np.arange(self.n_genes)

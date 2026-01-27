@@ -2,14 +2,14 @@ from copy import deepcopy
 import sys
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Any, Tuple, Self
 if TYPE_CHECKING:
     from agent.agent import Agent
     from world.world import World
 
 
 class Brain(ABC):
-    action: str = 'idle'
+    key_to_idx: dict[Any, int]
     mutation_scale: float
     n_mutations: int
     
@@ -37,47 +37,47 @@ class Brain(ABC):
     
     def get_context(self, agent: 'Agent', world: 'World'):
         near_agents = world.get_near_agents(agent, int(agent.genome.vision_range))
-        near_enemies = []
-        near_allies = []
-        for a,d in near_agents:
-            if a.species == agent.species:
-                near_allies.append((a,d))
-            else:
-                near_enemies.append((a,d))
-        nearest_food, nearest_food_dist = world.get_nearest_food(agent.get_pos(), int(agent.genome.vision_range))
-        nearest_food_energy = world.foodmap.get_food_energy(nearest_food) if nearest_food is not None else 0
+        nearest_food_pos, nearest_food_dist = world.get_nearest_food(agent.get_pos(), int(agent.genome.vision_range))
+        nearest_food_energy = world.foodmap.get_food_energy(nearest_food_pos) if nearest_food_pos is not None else 0
+        nearest_food_size = world.foodmap.get_food_size(nearest_food_pos) if nearest_food_pos is not None else 0
         return {
-            # agent variables
-            'energy': agent.energy / agent.genome.max_energy - 0.5,
-            'satiety': agent.satiety / agent.genome.max_satiety - 0.5,
-            'health': agent.health / agent.genome.max_health - 0.5,
-            'age': agent.age / agent.genome.max_age - 0.5,
-            'ready_to_reproduce': int(agent.ready_to_reproduce) - 0.5,
-            # agent properties
-            'self_genome': agent.genome,
-            # environment
-            'n_allies': len(near_allies) / 10  - 0.5,
-            'n_enemies': len(near_enemies) / 10  - 0.5,
-            'nearest_ally': near_allies[0][0] if len(near_allies)>0 else None,
-            'nearest_ally_dist': near_allies[0][1] / agent.genome.vision_range - 0.5 if len(near_allies)>0 else 0.5, 
-            'nearest_enemy': near_enemies[0][0] if len(near_enemies)>0 else None,
-            'nearest_enemy_dist': near_enemies[0][1] / agent.genome.vision_range - 0.5 if len(near_enemies)>0 else 0.5, 
-            'nearest_food': nearest_food,
-            'nearest_food_dist': nearest_food_dist / agent.genome.vision_range - 0.5,
-            'nearest_food_energy': nearest_food_energy / world.foodmap.food_base_energy - 0.5,
+            'self_agent': agent,
+            'near_agents': near_agents,
+            'nearest_food_pos': nearest_food_pos,
+            'nearest_food_dist': nearest_food_dist,
+            'nearest_food_energy': nearest_food_energy,
+            'nearest_food_size': nearest_food_size
         }
     
     def sense(self, agent, world):
         self.context = self.get_context(agent, world)
-    
-    @abstractmethod
-    def get_data(self) -> Dict:
-        ...
 
     @abstractmethod
-    def decide(self) -> str:
+    def decide(self) -> Tuple[str, Any]:
         ...
     
     @abstractmethod
     def mutate(self, scale_factor:float =1., n_mutations: int|None =-1):
+        ...
+    
+    @classmethod
+    def distance(cls, brain1: Self, brain2: Self, brains_std, alpha:float=1., eps:float=1e-9) -> float:
+        v1 = brain1.to_vector()
+        v2 = brain2.to_vector()
+        weights = np.array([1.0 for k in cls.key_to_idx]) # TODO weights for actions
+        # normalized euclidean
+        diff = (v1 - v2) / (brains_std + eps)
+        euclid = np.sqrt(np.sum(weights * diff * diff))
+        # cosine distance (directional)
+        cosine = 1.0 - np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + eps)
+        d = euclid * (1.0 + alpha * cosine) 
+        d /= len(cls.key_to_idx)
+        return d
+    
+    @abstractmethod  
+    def to_vector(self) -> np.ndarray:
+        ...
+    
+    @abstractmethod
+    def get_data(self) -> Dict:
         ...

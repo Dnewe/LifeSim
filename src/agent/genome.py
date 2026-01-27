@@ -1,5 +1,5 @@
 import sys
-from typing import Dict, Literal, Self
+from typing import Dict, Literal, Self, List
 from utils.eval_utils import eval_expr
 import numpy as np
 import math
@@ -7,6 +7,7 @@ from copy import deepcopy
 
 
 class Genome():
+    initialized = False
     # way to merge two parent genomes into a child genome
     merge_mode: Literal['mean', 'rdm_choice']
     reproduction: Literal['mate', 'clone']
@@ -36,8 +37,6 @@ class Genome():
     energy_to_reproduce: float
     maturity_age: float
     # alimentation
-    max_satiety: float
-    satiety_gain: float
     metabolism_efficiency: float
     # sensory
     vision_range: float
@@ -48,6 +47,12 @@ class Genome():
     # constants
     reproduce_cooldown: float
     
+    @classmethod
+    def initialize(cls, config):
+        cls.genes = sorted(config['genes'].keys())
+        cls.n_genes = len(cls.genes)
+        cls.key_to_idx = {g: i for i,g in enumerate(cls.genes)}
+        cls.initialized = True
     
     def __init__(self, gene_values, gene_rules, attributes_rules, reproduction, merge_mode, mutation_scale, n_mutations) -> None:
         self.gene_values = gene_values
@@ -61,6 +66,8 @@ class Genome():
     
     @classmethod
     def from_config(cls, config: Dict):
+        if not cls.initialized: 
+            cls.initialize(config)
         gene_values = {k: v['value'] for k, v in config['genes'].items()}
         return cls(gene_values, config['genes'], config['attributes'], config['reproduction'], config['merge_mode'], config['mutation_scale'], config['n_mutations'])
     
@@ -108,6 +115,31 @@ class Genome():
                     self.gene_values[k] = self._clamp_value(self._random_continuous(self.gene_values[k], scale), rules['min'], rules['max'])
                 elif rules['type'] == 'discrete':
                     self.gene_values[k] = self._random_discrete(self.gene_values[k], scale, rules['domain'], rules['weights'])
+                    
+    @classmethod
+    def distance(cls, genome1: Self, genome2: Self, genes_std, alpha:float =1., eps:float =1e-9) -> float:
+        v1 = np.log1p(genome1.to_vector())
+        v2 = np.log1p(genome2.to_vector())
+        weights = np.array([1.0 for k in cls.genes]) # TODO weights for genes
+        # normalized euclidean
+        diff = (v1 - v2) / (genes_std + eps)
+        euclid = np.sqrt(np.sum(weights * diff * diff))
+        # cosine distance (directional)
+        cosine = 1.0 - np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + eps)
+        d = euclid * (1.0 + alpha * cosine)  
+        d /= cls.n_genes
+        return d
+                    
+    def to_vector(self):
+        vect = np.empty(self.n_genes, dtype=np.float32)
+        for g, i in self.key_to_idx.items():
+            vect[i] = self.gene_values[g]
+        return vect
+    
+    def get_key_to_idx(self):
+        keys = sorted(self.gene_values.keys())
+        key_to_idx = {k: i for i,k in enumerate(keys)}
+        return key_to_idx
                 
     def _random_discrete(self, cur_v, scale, domain, weights):
         probs = [(scale*w)/(len(domain)-1) if cur_v == v else 1-scale for v,w in zip(domain, weights)]

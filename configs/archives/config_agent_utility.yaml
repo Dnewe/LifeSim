@@ -13,13 +13,13 @@ brain:
   mutation_scale: 0.2
   n_mutations: 2 # -1 for all
   utility_scores:
-    idle: {'energy': 0, 'age': 0, 'gamma': 0, 'bias': 0}
-    wander: {'energy': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
-    eat: {'food_proximity': 0, 'food_energy': 0, 'energy': 0, 'gamma': 0, 'bias': 0.5}
-    reproduce: {'age': 0, 'energy': 0, 'gamma': 0, 'bias': 0.5}
-    follow: {'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
-    flee: {'health': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
-    attack: {'energy': 0, 'health': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
+    idle: {'energy': 0, 'satiety': 0, 'age': 0, 'gamma': 0, 'bias': 0}
+    wander: {'energy': 0, 'satiety': 0, 'n_agents': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
+    eat: {'food_proximity': 0, 'food_energy': 0, 'energy': 0, 'satiety': 0, 'gamma': 0, 'bias': 1}
+    reproduce: {'ready_to_reproduce': 0, 'age': 0, 'energy': 0, 'gamma': 0, 'bias': 1.5}
+    follow: {'agent_proximity': 0, 'agent_genome_dist':0, 'n_agents': 0, 'gamma': 0, 'bias': 0}
+    flee: {'health': 0, 'n_agents': 1, 'agent_proximity': 1, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
+    attack: {'energy': 0, 'health': 0, 'n_agents': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
 
 
 ### Genome
@@ -33,6 +33,7 @@ genome:
     physiology: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
     metabolism: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
     sensorial: {type: 'continuous', value: 1., min: 0.1, max: None, mutable: True, mutation_factor: 1.}
+    #sex: {type: 'discrete', value: 'random', domain: ['male', 'female'], weights: [1, 1], mutable: True, mutation_factor: 1.,}
   attributes:
     # physical
     size:  {min: 1, max: None, factor: 3, expr: "morphology**0.5"}
@@ -42,16 +43,18 @@ genome:
     regeneration: {min: 0, max: 0.5, factor: 0.01, expr: "metabolism**0.5 * physiology**0.5 / morphology**0.25"}
     damage: {min: 0, max: None, factor: 2, expr: "morphology**0.5 * physiology**0.5"}
     # physiological (energy & mating)
-    max_age: {min: 1, max: None, factor: 5000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
-    max_energy: {min: 1, max: None, factor: 2000, expr: "morphology**1 * physiology**0.5 * metabolism **0.25"}
-    energy_to_reproduce: {min: 1, max: None, factor: 750, expr: "morphology**0.6 * physiology**0.5"}
+    max_age: {min: 1, max: None, factor: 10000000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
+    max_energy: {min: 1, max: None, factor: 4000, expr: "morphology**1 * physiology**0.5 * metabolism **0.25"}
+    energy_to_reproduce: {min: 1, max: None, factor: 400, expr: "morphology**0.6 * physiology**0.5"}
     maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.25 * physiology**0.5"}
     reproduce_cooldown: {min: 1, max: None, factor: 500, expr: "morphology**0.5 * physiology**0.5"}
     # alimentation
-    metabolism_efficiency: {min: 0, max: 1, factor: 0.5, expr: "metabolism**0.5 * physiology**0.1"}
+    max_satiety: {min: 0, max: None, factor: 200, expr: "metabolism**0.75 * morphology**0.5"}
+    satiety_gain: {min: 0, max: 1, factor: 0.5, expr: "metabolism**0.5 * morphology**0.25 - 0.8"}
+    metabolism_efficiency: {min: 1, max: 1, factor: 0.6, expr: "metabolism**0.5 * physiology**0.1"}
     # TODO eating_speed
     # sensory
-    vision_range: {min: 1, max: None, factor: 50, expr: "sensorial**0.5 * morphology**0.25"}
+    vision_range: {min: 1, max: None, factor: 75, expr: "sensorial**0.5 * morphology**0.25"}
     # energy costs
     step_cost: {min: 0.0001, max: None, factor: 0.1, expr: "morphology**0.5 * physiology * metabolism**0.75"}
     sense_cost: {min: 0.0001, max: None, factor: 0.1, expr: "sensorial * physiology**0.5"}
