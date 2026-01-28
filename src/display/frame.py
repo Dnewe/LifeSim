@@ -50,3 +50,6 @@ class Frame():
                 sy = ay - self.y0
                 x_min, x_max, y_min, y_max = posUtils.square((sx, sy), size, self.w, self.h)
                 self.array[x_min:x_max-1 ,y_min:y_max-1] = agent.get_color(mode=self.agent_display_mode)
+                
+    def render_pheromone(self, world: World):
+        pass

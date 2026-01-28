@@ -49,7 +49,9 @@ class SimulationWindow():
                     if e.key == pygame.K_f:
                         self.option_queue.put(('toggle_food', None))
                     if e.key == pygame.K_SPACE:
-                        self.option_queue.put(('toggle_pause', None))
+                        self.option_queue.put(('toggle_world_pause', None))
+                    if e.key == pygame.K_s:
+                        self.option_queue.put(('toggle_speciation_pause', None))
                 
             
             self.event_ready.wait()

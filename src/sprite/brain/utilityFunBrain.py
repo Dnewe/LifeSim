@@ -2,10 +2,10 @@ import numpy as np
 from typing import Dict, List, TYPE_CHECKING, Self
 if TYPE_CHECKING:
     from world.world import World
-    from agent.agent import Agent
-from agent.brain.brain import Brain
-from agent.genome import Genome
-import agent.goal as goal
+    from sprite.agent import Agent
+from sprite.brain.brain import Brain
+from sprite.genome import Genome
+import sprite.goal as goal
 
 
 MIN_G = 0.01
@@ -18,35 +18,33 @@ GAMMA_SCALE_FACTOR = 0.5
 class UtilityScore:
     action: str
     
-    def __init__(self, action: str, context_weights:Dict[str,float]) -> None:
+    def __init__(self, action: str, inputs_weights:Dict[str,float]) -> None:
         self.action = action
-        self.context_weights = dict(context_weights)
+        self.inputs_weights = dict(inputs_weights)
         self.prev_u = 0
     
-    def compute(self, context:Dict):
-        u = 0
-        for k,v in context.items():
-            if isinstance(v, (int, float)):
-                w = max(min(self.context_weights.get(k, 0), MAX_G), MIN_W)
-                u += w * v
-        u += self.context_weights.get('bias', 0)
-        g = self.context_weights.get('gamma', 0)
+    def compute(self, inputs:Dict):
+        u = self.inputs_weights.get('bias', 0)
+        for k,v in inputs.items():
+            w = self.inputs_weights.get(k, 0)
+            u += w * v
+        g = self.inputs_weights.get('gamma', 0)
         u = g * self.prev_u + (1-g) * u 
         self.prev_u = u
         return u
     
     def randomize(self, n_weights:int =-1, scale=0.1):
         # TODO update according to heuristics 
-        weights_to_change = np.random.choice(list(self.context_weights), n_weights) if n_weights >0 else self.context_weights.keys()
+        weights_to_change = np.random.choice(list(self.inputs_weights), n_weights) if n_weights >0 else self.inputs_weights.keys()
         for k in weights_to_change:
             if k == 'gamma':
                 delta = np.random.normal(0, GAMMA_SCALE_FACTOR * scale / 6)
-                g = self.context_weights[k] + delta
-                self.context_weights[k] = max(min(g, MAX_G), MIN_G)
+                g = self.inputs_weights[k] + delta
+                self.inputs_weights[k] = max(min(g, MAX_G), MIN_G)
             else:
                 delta = np.random.normal(0, (MAX_W - MIN_W) * scale / 6)
-                self.context_weights[k] += delta
-                self.context_weights[k] = max(min(self.context_weights[k], MAX_W), MIN_W)
+                self.inputs_weights[k] += delta
+                self.inputs_weights[k] = max(min(self.inputs_weights[k], MAX_W), MIN_W)
             
 
 class UtilityFunBrain(Brain):
@@ -62,6 +60,7 @@ class UtilityFunBrain(Brain):
             for k in config['utility_scores'][a].keys():
                 Brain.key_to_idx[(a,k)] = counter
                 counter += 1
+        Brain.n_keys = len(Brain.key_to_idx)
         cls.initialized = True
 
     def __init__(self, utility_scores: List[UtilityScore], mutation_scale, n_mutations) -> None:
@@ -83,14 +82,23 @@ class UtilityFunBrain(Brain):
         self.inputs = self.get_inputs(agent, world)
     
     def decide(self):
-        actions_and_scores = [(f.action, f.compute(self.inputs)) for f in self.utility_scores]
-        sorted_actions = [x[0] for x in sorted(actions_and_scores, key= lambda x: x[1], reverse=True)]
-        while not goal.valid_action_args(sorted_actions[0], self.get_action_args(sorted_actions[0])):
-            sorted_actions.pop(0)
-        action = sorted_actions[0] if len(sorted_actions)>0 else 'idle'
-        args = self.get_action_args(sorted_actions[0]) if len(sorted_actions)>0 else None
+        best_action = None
+        best_score = float("-inf")
+        best_args = None
+        for f in self.utility_scores:
+            action = f.action
+            score = f.compute(self.inputs)
+            if score <= best_score:
+                continue
+            args = self.get_action_args(action)
+            if goal.valid_action_args(action, args):
+                best_score = score
+                best_action = action
+                best_args = args
         self.context = {} # reset context to avoid being copied when cloned
-        return action, args
+        if best_action is None:
+            return "idle", None
+        return best_action, best_args
             
     def mutate(self, scale_factor = 1., n_mutations=None):
         scale = self.mutation_scale * scale_factor
@@ -101,7 +109,7 @@ class UtilityFunBrain(Brain):
     def get_data(self):
         data = {}
         for us in self.utility_scores:
-            data[us.action] = us.context_weights
+            data[us.action] = us.inputs_weights
         return data
     
     def get_action_args(self, action):
@@ -132,15 +140,15 @@ class UtilityFunBrain(Brain):
             # environment
             'n_agents': len(agents) / 5 - 0.5,
             'agent_proximity': 1 - agents[0][1] / agent.genome.vision_range - 0.5 if len(agents)>0 else 0.5,
-            'agent_genome_dist': Genome.distance(agent.genome, agents[0][0].genome, world.gc.genes_std) if len(agents)>0 else None,
+            'agent_genome_dist': Genome.distance(agent.genome, agents[0][0].genome, world.gc.genes_std) if len(agents)>0 else 0,
             'food_proximity': 1 - food_dist / agent.genome.vision_range - 0.5,
             'food_energy': food_energy / world.foodmap.food_base_energy - 0.5,
         }
         
     def to_vector(self) -> np.ndarray:
-        vec = np.empty(len(self.key_to_idx), dtype=np.float32)
+        vec = np.empty(self.n_keys, dtype=np.float32)
         for u in self.utility_scores:
-            for k,v in u.context_weights.items():
+            for k,v in u.inputs_weights.items():
                 vec[self.key_to_idx[(u.action, k)]] = v
         return vec
     

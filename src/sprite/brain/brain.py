@@ -4,12 +4,14 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, Any, Tuple, Self
 if TYPE_CHECKING:
-    from agent.agent import Agent
+    from sprite.agent import Agent
     from world.world import World
+import utils.timeperf as timeperf
 
 
 class Brain(ABC):
     key_to_idx: dict[Any, int]
+    n_keys: int
     mutation_scale: float
     n_mutations: int
     
@@ -17,10 +19,10 @@ class Brain(ABC):
     def from_config(cls, config):
         match config['type']:
             case 'conditional':
-                from agent.brain.conditionalBrain import ConditionalBrain
+                from sprite.brain.conditionalBrain import ConditionalBrain
                 return ConditionalBrain()
             case 'utility':
-                from agent.brain.utilityFunBrain import UtilityFunBrain
+                from sprite.brain.utilityFunBrain import UtilityFunBrain
                 return UtilityFunBrain.from_config(config)
             case _:
                 print(f'brain {type} not implemented')
@@ -61,6 +63,7 @@ class Brain(ABC):
         ...
     
     @classmethod
+    @timeperf.timed()
     def distance(cls, brain1: Self, brain2: Self, brains_std, alpha:float=1., eps:float=1e-9) -> float:
         v1 = brain1.to_vector()
         v2 = brain2.to_vector()
@@ -71,7 +74,7 @@ class Brain(ABC):
         # cosine distance (directional)
         cosine = 1.0 - np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + eps)
         d = euclid * (1.0 + alpha * cosine) 
-        d /= len(cls.key_to_idx)
+        d /= cls.n_keys
         return d
     
     @abstractmethod  

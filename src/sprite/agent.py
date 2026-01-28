@@ -4,21 +4,17 @@ import utils.pos_utils as posUtils
 from typing import TYPE_CHECKING, Self
 if TYPE_CHECKING:
     from world.world import World
-from agent.goal import REPRODUCE_IDLE_TIME, IdleGoal, Goal, GOALS_MAP
-from agent.genome import Genome
-from agent.brain.brain import Brain
+from sprite.goal import REPRODUCE_IDLE_TIME, IdleGoal, Goal, GOALS_MAP
+from sprite.genome import Genome
+from sprite.brain.brain import Brain
 import utils.timeperf as timeperf
+from sprite.sprite import Sprite
 
 # proportion of agent energy spawned as food upon death
 DEATH_ENERGY_PROP = 1.
 
 
-class Agent():
-    # pos
-    x:float
-    y:float
-    cell_x:int
-    cell_y:int
+class Agent(Sprite):
     # attributes
     alive:bool
     health: float
@@ -160,10 +156,6 @@ class Agent():
             self.x += step_size * dx / dist
             self.y += step_size * dy / dist
             return False
-
-
-    def get_pos(self):
-        return posUtils.clip_pos((int(self.x), int(self.y)))
     
     def get_size(self):
         return int(self.genome.size)
@@ -184,7 +176,7 @@ class Agent():
         else: # default
             r, g, b = 0, 255, 255
 
-        r = max(0, min(r, 255))
-        g = max(0, min(g, 255))
-        b = max(0, min(b, 255))
+        r = int(max(0, min(r, 255)))
+        g = int(max(0, min(g, 255)))
+        b = int(max(0, min(b, 255)))
         return r, g, b

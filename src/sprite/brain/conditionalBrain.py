@@ -1,10 +1,10 @@
 import numpy as np
 from copy import deepcopy
-from agent.brain.brain import Brain
+from sprite.brain.brain import Brain
 from typing import TYPE_CHECKING, Dict, Self
 if TYPE_CHECKING:
     from world.world import World
-from agent.genome import Genome
+from sprite.genome import Genome
 
 
 class ConditionalBrain(Brain):

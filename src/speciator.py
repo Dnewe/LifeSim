@@ -2,18 +2,19 @@ import numpy as np
 
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
-    from agent.agent import Agent
+    from sprite.agent import Agent
     from world.world import World
     from geneticContext import GeneticContext
-from agent.genome import Genome
-from agent.brain.brain import Brain
+from sprite.genome import Genome
+from sprite.brain.brain import Brain
 from geneticContext import GeneticContext
 import utils.timeperf as timeperf
 
 
 class Species:
-    def __init__(self, representative: 'Agent', _id) -> None:
+    def __init__(self, representative: 'Agent', birth_step, _id) -> None:
         self.id = _id
+        self.birth_step = birth_step
         self.representative = representative
         self.members: List['Agent'] = []
 
@@ -27,6 +28,7 @@ class Speciator:
         self.alpha = alpha
         self.reassign_species = reassign_species
         self.update_freq = update_freq
+        self.paused = False
         # species
         self.species:List[Species] = []
         self.n_species = 0
@@ -36,9 +38,9 @@ class Speciator:
     def from_config(cls, gc: GeneticContext, config):
         return cls(gc, config['speciation_cutoff'], config['genome_brain_ratio'], config['alpha'], config['reassign_species'], config['representative_update_freq'])
     
-    @timeperf.timed()
+    #@timeperf.timed()
     def update(self, world: 'World'):
-        if world.step_count % self.update_freq == 0:
+        if world.step_count % self.update_freq == 0 and not self.paused:
             self.assign_species(world, self.reassign_species)
             self.refresh_representatives()
             self.n_species = len(self.species)
@@ -63,7 +65,7 @@ class Speciator:
                 closest_species.members.append(a)
             else:
                 # new species
-                s = Species(a, self.next_species_id)
+                s = Species(a, world.step_count, self.next_species_id)
                 self.next_species_id += 1
                 s.members.append(a)
                 self.species.append(s)
@@ -93,6 +95,7 @@ class Speciator:
                 best_agent = a
         return best_agent
     
+    @timeperf.timed()
     def agent_distance(self, agent1:'Agent', agent2:'Agent', gc:'GeneticContext'):
         d_genome = Genome.distance(agent1.genome, agent2.genome, gc.genes_std, alpha=self.alpha)
         d_brain = Brain.distance(agent1.brain, agent2.brain, gc.brains_std, alpha=self.alpha)

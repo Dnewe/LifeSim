@@ -1,7 +1,9 @@
 import math
 from typing import List, Tuple
 import utils.pos_utils as posUtils
-from agent.agent import Agent
+from sprite.sprite import Sprite
+from sprite.agent import Agent
+from sprite.pheromone import Pheromone
 from world.foodMap import FoodMap
 from geneticContext import GeneticContext
 from speciator import Speciator
@@ -13,7 +15,8 @@ class World():
     width:int
     height:int
     agents:List[Agent]
-    grid:List[List[List[Agent]]]
+    pheromones:List[Pheromone]
+    grid:List[List[List[Sprite]]]
     
     def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_config, worlgen_config, food_config, agent_config) -> None:
         # params
@@ -29,6 +32,7 @@ class World():
         self.gc = GeneticContext.from_config(agent_config)
         self.speciator = Speciator.from_config(self.gc, speciation_config)
         self.agents = []
+        self.pheromones = []
         # initalization
         self._init_grid(cell_size)
         self._init_counters()
@@ -84,6 +88,15 @@ class World():
         self.n_deaths_per_type[agent.death_reason] += 1
         self.agents.remove(agent)
         self.grid[agent.cell_x][agent.cell_y].remove(agent)
+        
+    def add_pheromone(self, pheromone: Pheromone):
+        cx, cy = posUtils.grid_pos(pheromone.get_pos())
+        self.grid[cx][cy].append(pheromone)
+        self.pheromones.append(pheromone)
+        
+    def delete_pheromone(self, pheromone: Pheromone):
+        self.pheromones.remove(pheromone)
+        self.grid[pheromone.cell_x][pheromone.cell_y].remove(pheromone)
     
     def take_food_energy(self, pos, amount = 5):
         energy = self.foodmap.get_food_energy(pos)

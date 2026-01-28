@@ -4,7 +4,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, List, Type, Tuple, Any
 if TYPE_CHECKING:
-    from agent.agent import Agent
+    from sprite.agent import Agent
     
 
 # Idle Times after doing actions
@@ -127,14 +127,14 @@ class ReproduceGoal(Goal):
     
     def _clone(self, agent: 'Agent',):
         agent.reproduce()
-        from agent.agent import Agent
+        from sprite.agent import Agent
         baby = Agent.clone(agent)
         return baby
         
     def _mate(self, agent1: 'Agent', agent2: 'Agent'):
         agent1.reproduce()
         agent2.reproduce()
-        from agent.agent import Agent
+        from sprite.agent import Agent
         baby = Agent.from_parents(agent1, agent2)
         return baby
     

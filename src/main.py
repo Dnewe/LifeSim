@@ -24,7 +24,7 @@ def loop(world, metrics, frame, actionHandler, event_ready, event_close):
             frame.render(world)
             actionHandler.update_actions(world)
             event_ready.set()
-            actionHandler.update_options(frame)
+            actionHandler.update_options(frame, world)
             prev_time = time.time_ns()
     timeperf.print_relative()
     timeperf.print_global()

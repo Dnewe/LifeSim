@@ -1,5 +1,5 @@
 
-gc_update_freq: 50
+gc_update_freq: 200
 initial_genome_mutation_factor: 1
 initial_brain_mutation_factor: 1
 
@@ -15,8 +15,8 @@ brain:
   utility_scores:
     idle: {'energy': 0, 'age': 0, 'gamma': 0, 'bias': 0}
     wander: {'energy': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
-    eat: {'food_proximity': 0, 'food_energy': 0, 'energy': 0, 'gamma': 0, 'bias': 0.5}
-    reproduce: {'age': 0, 'energy': 0, 'gamma': 0, 'bias': 0.5}
+    eat: {'food_proximity': 0, 'food_energy': 0, 'energy': 0, 'gamma': 0, 'bias': 0.7}
+    reproduce: {'age': 0, 'energy': 0, 'gamma': 0, 'bias': 0.7}
     follow: {'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
     flee: {'health': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}
     attack: {'energy': 0, 'health': 0, 'agent_proximity': 0, 'agent_genome_dist':0, 'gamma': 0, 'bias': 0}

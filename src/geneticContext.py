@@ -2,11 +2,11 @@ from typing import TYPE_CHECKING, List, Dict
 from collections import defaultdict
 import numpy as np
 if TYPE_CHECKING:
-    from agent.agent import Agent
+    from sprite.agent import Agent
     from world.world import World
 import utils.timeperf as timeperf
-from agent.genome import Genome
-from agent.brain.brain import Brain
+from sprite.genome import Genome
+from sprite.brain.brain import Brain
 
 
 class GeneticContext:
@@ -45,12 +45,12 @@ class GeneticContext:
     def get_brain_mean(self, key, species=None) -> float:
         if species is None:
             return self.brains_mean[Brain.key_to_idx[key]]
-        return self.species_genes_mean[species][Brain.key_to_idx[key]]
+        return self.species_brains_mean[species][Brain.key_to_idx[key]]
             
     def get_brain_std(self, key, species=None) -> float:
         if species is None:
             return self.brains_std[Brain.key_to_idx[key]]
-        return self.species_genes_std[species][Brain.key_to_idx[key]]
+        return self.species_brains_std[species][Brain.key_to_idx[key]]
     
     def update_gene_stats(self, agents: List['Agent'], eps=1e-9, global_only=False):
         # Global

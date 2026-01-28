@@ -8,8 +8,8 @@ from collections import defaultdict
 import utils.timeperf as timeperf
 
 from world.world import World
-from agent.genome import Genome
-from agent.brain.brain import Brain
+from sprite.genome import Genome
+from sprite.brain.brain import Brain
 
 
 class Metrics():
@@ -28,7 +28,7 @@ class Metrics():
         self.births = []
         self.deaths = {"age": [], "starvation": [], "killed": []}  
         # species
-        self.species_scatter_data = None
+        self.species_pca_data = None
         self.species_density_data = {'count': [], 'species': [], 'step': []}
         self.species_labels = []
         # genes
@@ -48,6 +48,9 @@ class Metrics():
 
     @timeperf.timed()
     def update(self, world: World):
+        if world.paused:
+            self.n_step = world.step_count - self.step_freq # to remove last step
+            self.put_in_queue()
         self.n_step = world.step_count
         if self.n_step % self.step_freq != 0:
             return
@@ -62,16 +65,20 @@ class Metrics():
             else: 
                 self.deaths[type].append(n)
         # species
-        self.n_species = world.speciator.n_species
+        self.species = [s.id for s in world.speciator.species]
         self.update_species_genes_data(world)
-        self.update_species_scatter_data(world)
+        self.update_species_pca_data(world)
         self.update_species_density_data(world)
         # genes
         self.update_genes_metrics(world)
         # brain
         self.update_actions_density_data(world)
         self.update_brain_metrics(world)
+        self.update_species_brains_data(world)
 
+        self.put_in_queue()
+            
+    def put_in_queue(self):
         if self.queue.full():
             self.queue.empty()
         else: # else no allow the use of nowait
@@ -89,8 +96,8 @@ class Metrics():
             "births": self.births[:],
             "deaths": {**self.deaths},
             # species
-            "n_species": self.n_species,
-            "species_scatter_data": self.species_scatter_data,
+            "species": self.species,
+            "species_pca_data": self.species_pca_data,
             "species_density_data": self.species_density_data,
             # genes
             "genes_means": {**self.genes_means},
@@ -115,9 +122,9 @@ class Metrics():
             self.fps_list.pop(0)
         self.prev_time = cur_time
 
-    def _update_species_scatter_data(self, world: World):
+    def _update_species_pca_data(self, world: World):
         if len(world.agents) <= 2:
-            self.species_scatter_data = None
+            self.species_pca_data = None
             return
         genomes_all = [a.genome for a in world.agents]
         genomes_repr = [s.representative.genome for s in world.speciator.species]
@@ -130,27 +137,41 @@ class Metrics():
         points_repr = pca.transform(mat_repr)
         labels_all = np.array([int(a.species) for a in world.agents if a.genome not in genomes_repr])
         labels_repr = np.array([s.id for s in world.speciator.species])
-        self.species_scatter_data = {'points_list': [points_all, points_repr],
+        self.species_pca_data = {'points_list': [points_all, points_repr],
                                      'labels_list': [labels_all, labels_repr],
                                      'markers': ['.', '*']}
         
-    def update_species_scatter_data(self, world: World):
+    def update_species_pca_data(self, world: World):
         if len(world.agents) <= 2:
-            self.species_scatter_data = None
+            self.species_pca_data = None
             return    
         representatives = [s.representative for s in world.speciator.species]
-        mat_all = np.array([np.hstack((a.genome.to_vector(), a.brain.to_vector())) for a in world.agents if a not in representatives])
-        mat_repr = np.array([np.hstack((a.genome.to_vector(), a.brain.to_vector())) for a in representatives])
-        if mat_all.shape[0] < 2:
+        # both
+        mat_all_both = np.array([np.hstack((a.genome.to_vector(), a.brain.to_vector())) for a in world.agents if a not in representatives])
+        mat_repr_both = np.array([np.hstack((a.genome.to_vector(), a.brain.to_vector())) for a in representatives])
+        # genome
+        mat_all_genome = np.array([a.genome.to_vector() for a in world.agents if a not in representatives])
+        mat_repr_genome = np.array([a.genome.to_vector() for a in representatives])
+        # brain
+        mat_all_brain = np.array([a.brain.to_vector() for a in world.agents if a not in representatives])
+        mat_repr_brain = np.array([a.brain.to_vector() for a in representatives])
+        
+        if mat_all_both.shape[0] < 2:
             return  # exit if not enough non-representant agents
+        # PCA
         pca = IncrementalPCA(n_components=2, batch_size=256)
-        points_all = pca.fit_transform(mat_all)
-        points_repr = pca.transform(mat_repr)
+        points_all_both = pca.fit_transform(mat_all_both)
+        points_repr_both = pca.transform(mat_repr_both)
+        points_all_genome = pca.fit_transform(mat_all_genome)
+        points_repr_genome = pca.transform(mat_repr_genome)
+        points_all_brain = pca.fit_transform(mat_all_brain)
+        points_repr_brain = pca.transform(mat_repr_brain)
+        # labels
         labels_all = np.array([int(a.species) for a in world.agents if a not in representatives])
         labels_repr = np.array([s.id for s in world.speciator.species])
-        self.species_scatter_data = {'points_list': [points_all, points_repr],
-                                     'labels_list': [labels_all, labels_repr],
-                                     'markers': ['.', '*']}
+        self.species_pca_data = {'genome': {'points_list': [points_all_genome, points_repr_genome], 'labels_list': [labels_all, labels_repr], 'markers': ['.', '*']},
+                                 'brain': {'points_list': [points_all_brain, points_repr_brain], 'labels_list': [labels_all, labels_repr], 'markers': ['.', '*']},
+                                 'both': {'points_list': [points_all_both, points_repr_both], 'labels_list': [labels_all, labels_repr], 'markers': ['.', '*']}}
         
     def update_species_density_data(self, world: World):
         step = world.step_count
@@ -200,6 +221,7 @@ class Metrics():
     def update_species_brains_data(self, world: World):
         self.species_brains_mean = {s.id: {} for s in world.speciator.species}
         self.species_brains_cv = {s.id: {} for s in world.speciator.species}
+        self.species_brains_std = {s.id: {} for s in world.speciator.species}
         for s in world.speciator.species:
             sid = s.id
             means = defaultdict(dict)

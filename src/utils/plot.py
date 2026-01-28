@@ -42,9 +42,22 @@ def scatter_plot(ax, points_list:List, labels_list:List, markers:List, title:str
     for points, labels, marker in zip(points_list, labels_list, markers):
         colors = CMAP(labels % CMAP.N)
         ax.scatter(points[:,0], points[:,1], color=colors, marker=marker)
+        
+        
+def bar_plot(ax, x, y, label, xlabels, title:str, ymin=None, ymax=None):
+    ax.clear()
+    width = 0.75
+    color = CMAP(label % CMAP.N)
+    rects = ax.bar(x, y, width, color=color)
+    ax.bar_label(rects, padding=3)
+    ax.set_title(title)
+    ax.set_xticks(x + width/2, xlabels)
+    ax.set_ylabel('values')
+    if ymin is not None: ax.set_ylim(bottom=ymin)
+    if ymax is not None: ax.set_ylim(top=ymax)
 
 
-def bar_plot(ax, x, ys, labels, xticks, title:str):
+def multibar_plot(ax, x, ys, labels, xlabels, title:str):
     ax.clear()
     n = len(ys)
     if n==0:
@@ -58,7 +71,7 @@ def bar_plot(ax, x, ys, labels, xticks, title:str):
         ax.bar_label(rects, padding=3)
         multiplier += 1
     ax.set_title(title)
-    ax.set_xticks(x + width/2, xticks)
+    ax.set_xticks(x + width/2, xlabels)
     ax.set_ylabel('values')
     ax.legend(loc='upper left', ncols=n) 
 

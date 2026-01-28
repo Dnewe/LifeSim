@@ -4,6 +4,7 @@ from utils.eval_utils import eval_expr
 import numpy as np
 import math
 from copy import deepcopy
+import utils.timeperf as timeperf
 
 
 class Genome():
@@ -115,8 +116,9 @@ class Genome():
                     self.gene_values[k] = self._clamp_value(self._random_continuous(self.gene_values[k], scale), rules['min'], rules['max'])
                 elif rules['type'] == 'discrete':
                     self.gene_values[k] = self._random_discrete(self.gene_values[k], scale, rules['domain'], rules['weights'])
-                    
+    
     @classmethod
+    @timeperf.timed()                
     def distance(cls, genome1: Self, genome2: Self, genes_std, alpha:float =1., eps:float =1e-9) -> float:
         v1 = np.log1p(genome1.to_vector())
         v2 = np.log1p(genome2.to_vector())
