@@ -9,6 +9,7 @@ import utils.timeperf as timeperf
 
 
 class World():
+    paused:bool
     width:int
     height:int
     agents:List[Agent]
@@ -16,6 +17,7 @@ class World():
     
     def __init__(self, w, h, cell_size, n_agents, n_food_spawns, speciation_config, worlgen_config, food_config, agent_config) -> None:
         # params
+        self.paused = False
         self.width = w
         self.height = h
         self.agent_config = agent_config
@@ -165,7 +167,10 @@ class World():
             counts[sid] = counts.get(sid, 0) + 1
         self.n_agents_per_species = counts
 
+    @timeperf.timed()
     def step(self):
+        if self.paused:
+            return
         self.step_agents()
         self.update_counter()
         self.speciator.update(self)

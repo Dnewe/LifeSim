@@ -10,7 +10,7 @@ class ActionHandler():
         self.option_queue = option_queue
         self.action_queue = action_queue
         
-    def update_options(self, frame: Frame):
+    def update_options(self, frame: Frame, world: World):
         while not self.option_queue.empty():
             cmd, value = self.option_queue.get()
             
@@ -25,6 +25,9 @@ class ActionHandler():
                 frame.show_agents = not frame.show_agents
             elif cmd == 'toggle_food':
                 frame.show_food = not frame.show_food
+            elif cmd == 'toggle_pause':
+                world.paused = not world.paused
+                
     
     def update_actions(self, world: World):
         while not self.action_queue.empty():
