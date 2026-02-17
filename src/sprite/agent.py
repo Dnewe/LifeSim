@@ -82,7 +82,9 @@ class Agent(Sprite):
         self.wander_pos = None
         self.idle_time = 0
         self.can_reproduce = False
+        self.can_emit_pheromone = False
         self.reproduce_cooldown = self.genome.reproduce_cooldown - age
+        self.pheromone_cooldown = self.genome.pheromone_cooldown
 
     def sense(self, world: 'World'):
         self.brain.sense(self, world)
@@ -114,11 +116,17 @@ class Agent(Sprite):
         self.age += 1
         self.idle_time = max(0, self.idle_time-1)
         self.reproduce_cooldown = max(0, self.reproduce_cooldown-1)
+        self.pheromone_cooldown = max(0, self.pheromone_cooldown-1)
         # reproduction
         if self.energy >= self.genome.energy_to_reproduce and self.age >= self.genome.maturity_age and self.reproduce_cooldown==0:
             self.can_reproduce = True
         elif self.energy < self.genome.energy_to_reproduce:
             self.can_reproduce = False
+        # pheromone
+        if self.pheromone_cooldown==0:
+            self.can_emit_pheromone = True
+        else:
+            self.can_emit_pheromone = False
             
     def reproduce(self):
         """

@@ -38,13 +38,14 @@ class Brain(ABC):
         return np.random.choice([brain1, brain2]) # TODO
     
     def get_context(self, agent: 'Agent', world: 'World'):
-        near_agents = world.get_near_agents(agent, int(agent.genome.vision_range))
+        near_agents, near_pheromones = world.get_near_sprites(agent, int(agent.genome.vision_range))
         nearest_food_pos, nearest_food_dist = world.get_nearest_food(agent.get_pos(), int(agent.genome.vision_range))
         nearest_food_energy = world.foodmap.get_food_energy(nearest_food_pos) if nearest_food_pos is not None else 0
         nearest_food_size = world.foodmap.get_food_size(nearest_food_pos) if nearest_food_pos is not None else 0
         return {
             'self_agent': agent,
             'near_agents': near_agents,
+            'near_pheromones': near_pheromones,
             'nearest_food_pos': nearest_food_pos,
             'nearest_food_dist': nearest_food_dist,
             'nearest_food_energy': nearest_food_energy,

@@ -24,6 +24,7 @@ class Frame():
         # render
         if self.show_biomes: self.render_biome(world)
         if self.show_food: self.render_food(world)
+        if self.show_agents: self.render_pheromone(world)
         if self.show_agents: self.render_agents(world)
         
                 
@@ -45,11 +46,29 @@ class Frame():
         for agent in world.agents:
             ax, ay = agent.get_pos()
             size = agent.get_size()
-            if self.x0 - size <= ax <= self.x1 + size and self.y0 - size <= ay <= self.y1 + size:
+            
+            if self.x0 - size <= ax < self.x1 + size and self.y0 - size <= ay < self.y1 + size:
                 sx = ax - self.x0
                 sy = ay - self.y0
                 x_min, x_max, y_min, y_max = posUtils.square((sx, sy), size, self.w, self.h)
                 self.array[x_min:x_max-1 ,y_min:y_max-1] = agent.get_color(mode=self.agent_display_mode)
+             
                 
     def render_pheromone(self, world: World):
-        pass
+        for p in world.pheromones:
+            px, py = p.get_pos()
+            radius = int(p.radius)
+            pixel_step = min(int(50 / p.intensity**0.5), 8)
+            
+            # check for pheromone in frame
+            if self.x0 <= px <= self.x1 and self.y0 <= py <= self.y1:
+                sx = px - self.x0
+                sy = py - self.y0
+                for x in range(sx - radius, sx + radius - pixel_step+1, pixel_step):
+                    for y in range(sy - radius, sy + radius- pixel_step+1, pixel_step):
+                        #check for x,y in frame
+                        if 0 <= x < self.w and 0 <= y < self.h:
+                            # check for in radius
+                            d = posUtils.distance((sx, sy), (x, y))
+                            if d<=radius:
+                                self.array[x,y] = p.get_color()

@@ -41,10 +41,16 @@ class Genome():
     metabolism_efficiency: float
     # sensory
     vision_range: float
+    # pheromone
+    pheromone_intensity: float
+    pheromone_radius: float
+    pheromone_decay_rate: float
+    pheromone_cooldown: float
     # energy costs
     step_cost: float
     sense_cost: float
     idle_cost: float
+    pheromone_cost: float
     # constants
     reproduce_cooldown: float
     

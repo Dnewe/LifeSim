@@ -125,11 +125,13 @@ class UtilityFunBrain(Brain):
                 case 'target': arg = self.context['near_agents'][0][0] if len(self.context['near_agents'])>0 else None  # nearest agent
                 case 'target_dist': arg = self.context['near_agents'][0][1] if len(self.context['near_agents'])>0 else 1  # nearest agent dist
                 case 'can_reproduce': arg = self.context['self_agent'].can_reproduce
+                case 'can_emit_pheromone': arg = self.context['self_agent'].can_emit_pheromone
             args[k] = arg
         return args
     
     def get_inputs(self, agent: 'Agent', world: 'World'):
         agents = self.context['near_agents']
+        pheromones = self.context['near_pheromones']
         food_dist = self.context['nearest_food_dist']
         food_energy = self.context['nearest_food_energy']
         return {
@@ -138,11 +140,13 @@ class UtilityFunBrain(Brain):
             'health': agent.health / agent.genome.max_health - 0.5,
             'age': agent.age / agent.genome.max_age - 0.5,
             # environment
+            'food_proximity': 1 - food_dist / agent.genome.vision_range - 0.5,
+            'food_energy': food_energy / world.foodmap.food_base_energy - 0.5,
             'n_agents': len(agents) / 5 - 0.5,
             'agent_proximity': 1 - agents[0][1] / agent.genome.vision_range - 0.5 if len(agents)>0 else 0.5,
             'agent_genome_dist': Genome.distance(agent.genome, agents[0][0].genome, world.gc.genes_std) if len(agents)>0 else 0,
-            'food_proximity': 1 - food_dist / agent.genome.vision_range - 0.5,
-            'food_energy': food_energy / world.foodmap.food_base_energy - 0.5,
+            'detects_pheromone': int(len(pheromones)>0),
+            'pheromone_intensity': pheromones[0][0].intensity / 100 if len(pheromones)>0 else 0
         }
         
     def to_vector(self) -> np.ndarray:

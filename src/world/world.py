@@ -93,6 +93,8 @@ class World():
         cx, cy = posUtils.grid_pos(pheromone.get_pos())
         self.grid[cx][cy].append(pheromone)
         self.pheromones.append(pheromone)
+        pheromone.cell_x = cx
+        pheromone.cell_y = cy
         
     def delete_pheromone(self, pheromone: Pheromone):
         self.pheromones.remove(pheromone)
@@ -111,64 +113,93 @@ class World():
         return self.foodmap.get_nearest_food(pos, radius)
     
     @timeperf.timed()
-    def get_near_agents(self, from_agent: Agent, radius: int) -> List[Tuple[Agent, float]]:
+    def get_near_sprites(self, from_agent: Agent, radius: int) -> Tuple[List[Tuple[Agent, float]], List[Tuple[Pheromone, float]]]:
         '''
-        Get agents in radius around an agent,
-        returns a list containing agents ordered by distance.
+        Get sprites in radius around an agent,
+        returns a list containing agents ordered by distance and a list containing pheromones orderedd by distance
         '''
-        if len(self.agents) <= 1:
-            return []
+        if len(self.agents) <= 1 and len(self.pheromones) <= 1:
+            return [], []
         
         cx, cy = posUtils.grid_pos(from_agent.get_pos())
         cells_offset = math.ceil(radius / self.cell_size)
         agents_dists = []
+        pheromones_dists = []
         for dx in range(-cells_offset, cells_offset+1):
             for dy in range(-cells_offset, cells_offset+1):
                 nx = cx + dx
                 ny = cy + dy
                 if 0 <= nx < self.grid_w and 0 <= ny < self.grid_h:
-                    for other_agent in self.grid[nx][ny]:
-                        if other_agent is from_agent:
+                    for other_sprite in self.grid[nx][ny]:
+                        if other_sprite is from_agent:
                             continue
-                        dist = posUtils.distance(from_agent.get_pos(), other_agent.get_pos())
-                        agents_dists.append((other_agent, dist))
-        # sort
+                        dist = posUtils.distance(from_agent.get_pos(), other_sprite.get_pos())
+                        if type(other_sprite) == Agent:
+                            agents_dists.append((other_sprite, dist))
+                        elif type(other_sprite) == Pheromone:
+                            pheromones_dists.append((other_sprite, dist))
+        # sort and filter agents (according to from_agent radius)
         agents_dists.sort(key= lambda a: a[1])
         sorted_agents_dists = [(a,d) for a,d in agents_dists if d<=radius]
-        return sorted_agents_dists
+        # sort and filter pheromones (according to pheromone radius)
+        pheromones_dists.sort(key= lambda x: x[1])
+        sorted_pheromones_dists = [(p,d) for p,d in pheromones_dists if d<=p.radius]
+        return sorted_agents_dists, sorted_pheromones_dists
     
     ### Updates
     
-    def update_grid_pos(self, agent: Agent):
-        new_cx, new_cy = posUtils.grid_pos(agent.get_pos())
-        if new_cx == agent.cell_x and new_cy == agent.cell_y:
+    def update_grid_pos(self, sprite: Sprite):
+        new_cx, new_cy = posUtils.grid_pos(sprite.get_pos())
+        if new_cx == sprite.cell_x and new_cy == sprite.cell_y:
             return
-        self.grid[new_cx][new_cy].append(agent)
-        self.grid[agent.cell_x][agent.cell_y].remove(agent)
-        agent.cell_x = new_cx
-        agent.cell_y = new_cy
+        self.grid[new_cx][new_cy].append(sprite)
+        self.grid[sprite.cell_x][sprite.cell_y].remove(sprite)
+        sprite.cell_x = new_cx
+        sprite.cell_y = new_cy
         
     def exec_event(self, event):
         etype, args = event
         if etype == 'add_agent':
             self.add_agent(**args)
+        elif etype == 'add_pheromone':
+            self.add_pheromone(**args)
         elif etype == 'eat':
             self.take_food_energy(**args)
         
     def step_agents(self):
+        '''
+        Step agent by computing decision first for all agents, then executing actions.
+        Deletes dead agents.
+        Upgrades grid.
+        '''
         for a in self.agents:
             a.sense(self)
             a.decide()
+            
         for a in self.agents:
             event = a.act()
             if event is not None:
                 self.exec_event(event)
+                
         dead_agents = [a for a in self.agents if not a.alive]
         for a in dead_agents:
             self.foodmap.add_food(a.get_pos(), a.energy)
             self.delete_agent(a) 
+            
         for a in self.agents:
-            self.update_grid_pos(a)                 
+            self.update_grid_pos(a)      
+         
+            
+    def step_pheromones(self):
+        '''
+        Step, delete expired pheromones and update grid for all pheromones.
+        '''
+        for p in self.pheromones:
+            p.step()      
+            if p.expired:
+                self.delete_pheromone(p) 
+            self.update_grid_pos(p)
+       
         
     def update_counter(self):
         self.step_count += 1
@@ -185,6 +216,7 @@ class World():
         if self.paused:
             return
         self.step_agents()
+        self.step_pheromones()
         self.update_counter()
         self.speciator.update(self)
         self.gc.update(self)

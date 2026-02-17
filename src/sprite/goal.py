@@ -12,6 +12,7 @@ WANDERING_IDLE_TIME = 10
 EATING_IDLE_TIME = 0 #20
 REPRODUCE_IDLE_TIME = 100
 ATTACKING_IDLE_TIME = 10
+PHEROMONE_IDLE_TIME = 10
 
 
 class Goal(ABC):
@@ -128,15 +129,13 @@ class ReproduceGoal(Goal):
     def _clone(self, agent: 'Agent',):
         agent.reproduce()
         from sprite.agent import Agent
-        baby = Agent.clone(agent)
-        return baby
+        return Agent.clone(agent)
         
     def _mate(self, agent1: 'Agent', agent2: 'Agent'):
         agent1.reproduce()
         agent2.reproduce()
         from sprite.agent import Agent
-        baby = Agent.from_parents(agent1, agent2)
-        return baby
+        return Agent.from_parents(agent1, agent2)
     
 
 class FleeGoal(Goal):
@@ -164,7 +163,7 @@ class AttackGoal(Goal):
         if self.args['target_dist'] < (agent.genome.size + self.args['target'].genome.size):
             self._attack(agent, self.args['target'])
             agent.idle_time = ATTACKING_IDLE_TIME
-            STEP_COST_FACTOR = 3.
+            STEP_COST_FACTOR = 2.
             SENSE_COST_FACTOR = 2.
             self.cost = agent.genome.step_cost * STEP_COST_FACTOR + agent.genome.sense_cost * SENSE_COST_FACTOR
             self.completed = True
@@ -182,8 +181,24 @@ class AttackGoal(Goal):
         
 
 class PheromoneGoal(Goal):
-    pass
-        
+    args_keys: List[str] = ['can_emit_pheromone']
+    
+    def exec(self, agent: 'Agent'):
+        agent.idle_time = PHEROMONE_IDLE_TIME
+        STEP_COST_FACTOR = 1.
+        SENSE_COST_FACTOR = 1.
+        self.cost = agent.genome.step_cost * STEP_COST_FACTOR + agent.genome.sense_cost * SENSE_COST_FACTOR + agent.genome.pheromone_cost
+        self.completed = True
+        return ('add_pheromone', {'pheromone': self._create_pheromone(agent)})
+    
+    def _create_pheromone(self, agent: 'Agent'):
+        from sprite.pheromone import Pheromone
+        return Pheromone(agent.get_pos(), agent.genome.pheromone_radius, agent.genome.pheromone_intensity, agent.genome.pheromone_decay_rate)
+    
+    @classmethod         
+    def valid_args(cls, args) -> bool:
+        return 'can_emit_pheromone' in args and args['can_emit_pheromone']
+    
         
 GOALS_MAP: Dict[str, Type[Goal]] = {
     'idle': IdleGoal,
