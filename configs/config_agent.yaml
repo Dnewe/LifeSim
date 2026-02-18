@@ -44,7 +44,6 @@ genome:
     regeneration: {min: 0, max: 0.5, factor: 0.01, expr: "metabolism**0.5 * physiology**0.5 / morphology**0.25"}
     damage: {min: 0, max: None, factor: 2, expr: "morphology**0.5 * physiology**0.5"}
     # physiological (energy & mating)
-    max_age: {min: 1, max: None, factor: 4000, expr: "morphology**1 * physiology**0.5"} # changed from  morphology**0.25 * physiology**0.75
     max_energy: {min: 1, max: None, factor: 2000, expr: "morphology**1 * physiology**0.5 * metabolism **0.25"}
     energy_to_reproduce: {min: 1, max: None, factor: 750, expr: "morphology**0.6 * physiology**0.5"}
     maturity_age: {min: 1, max: None, factor: 500, expr: "morphology**0.25 * physiology**0.5"}
@@ -63,7 +62,7 @@ genome:
     step_cost: {min: 0.0001, max: None, factor: 0.1, expr: "morphology**0.5 * physiology * metabolism**0.75"}
     sense_cost: {min: 0.0001, max: None, factor: 0.1, expr: "sensorial * physiology**0.5"}
     idle_cost: {min: 0.0001, max: None, factor: 0.01, expr: "morphology**0.75 * physiology**0.5 * metabolism"}
-    pheromone_cost: {min: 0.0001, max: None, factor: 20, expr: "pheromone"}
+    pheromone_cost: {min: 0.0001, max: None, factor: 50, expr: "pheromone"}
 
     
       

@@ -25,7 +25,7 @@ def multiline_plot(ax, x, ys:List, labels:List, title:str):
     ax.set_title(title)
     for y, l in zip(ys, labels):
         ax.plot(x, y, label=l)
-    ax.legend()
+    ax.legend(loc='upper left')
 
 
     

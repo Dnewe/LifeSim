@@ -36,8 +36,8 @@ class Agent(Sprite):
         brain = Brain.from_config(config['brain'])
         brain.mutate(config['initial_brain_mutation_factor'], n_mutations= -1)
         energy = genome.max_energy * 0.75
-        rdm_age = np.random.randint(0, int(genome.max_age*0.5))
-        return cls(genome, brain, pos=posUtils.random_pos(), gen=0, energy=energy, age=rdm_age)
+        age = 0
+        return cls(genome, brain, pos=posUtils.random_pos(), gen=0, energy=energy, age=age)
     
     @classmethod
     def clone(cls, other:Self, mutate = True):
@@ -105,8 +105,8 @@ class Agent(Sprite):
         # clip values
         self.energy = min(self.energy, self.genome.max_energy)
         # alive / dead
-        if self.energy <= 0 or self.age >= self.genome.max_age or self.health <= 0:
-            print(f'died at: max_age-age={int(self.genome.max_age - self.age)}, energy={int(self.energy)}, health={int(self.health)}')
+        if self.energy <= 0 or self.health <= 0:
+            print(f'died at: energy={int(self.energy)}, health={int(self.health)}')
             self.die()
         # decay energy
         self.energy -= self.goal.cost

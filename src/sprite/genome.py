@@ -33,7 +33,6 @@ class Genome():
     max_health: float
     regeneration: float
     # physiological (energy & mating)
-    max_age: float
     max_energy: float
     energy_to_reproduce: float
     maturity_age: float

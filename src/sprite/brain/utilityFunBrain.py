@@ -138,7 +138,7 @@ class UtilityFunBrain(Brain):
             # agent variables
             'energy': agent.energy / agent.genome.max_energy - 0.5,
             'health': agent.health / agent.genome.max_health - 0.5,
-            'age': agent.age / agent.genome.max_age - 0.5,
+            'age': agent.age / 5000, # to normalize prevent too high values
             # environment
             'food_proximity': 1 - food_dist / agent.genome.vision_range - 0.5,
             'food_energy': food_energy / world.foodmap.food_base_energy - 0.5,
