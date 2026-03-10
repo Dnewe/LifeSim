@@ -55,7 +55,7 @@ class Genome():
     
     @classmethod
     def initialize(cls, config):
-        cls.genes = sorted(config['genes'].keys())
+        cls.genes = list(sorted(config['genes'].keys()))
         cls.n_genes = len(cls.genes)
         cls.key_to_idx = {g: i for i,g in enumerate(cls.genes)}
         cls.initialized = True

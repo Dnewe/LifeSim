@@ -3,7 +3,6 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from scipy.cluster.hierarchy import dendrogram
 import tkinter as tk
 from queue import Empty
 from utils.plot import *
@@ -37,7 +36,7 @@ class MetricsWindow():
         self.queue = queue
         self.event_close = event_close
         self.time_freq = time_freq
-        self.labels = []
+
 
     def run(self):
         self.root = tk.Tk()
@@ -49,6 +48,7 @@ class MetricsWindow():
         
         self.update()
         self.root.mainloop()
+  
         
     def _build_top_bar(self):
         top = tk.Frame(self.root)
@@ -57,6 +57,7 @@ class MetricsWindow():
         self.step_label.pack(side="left", padx=(0, 12))
         self.step_per_s_label = tk.Label(top, text="STEP PER S: 0", font=("Arial", 16))
         self.step_per_s_label.pack(side="left", padx=(0, 12))
+   
         
     def _build_main(self):
         main = tk.Frame(self.root)
@@ -64,6 +65,7 @@ class MetricsWindow():
         self._build_left_column(main)
         self._build_mid_column(main)
         self._build_right_column(main)
+  
         
     def _build_left_column(self, parent):
         left = tk.Frame(parent)
@@ -92,6 +94,7 @@ class MetricsWindow():
         self.left_ax2 = self.left_fig2.add_subplot(111)
         self.left_canvas2 = self._add_canvas(plots, self.left_fig2, expand=True)
         
+        
     def _build_mid_column(self, parent):
         mid = tk.Frame(parent)
         mid.pack(side="left", fill="both", expand=True, padx=4, pady=4)
@@ -116,6 +119,7 @@ class MetricsWindow():
         # --- Plots ---
         self.mid_fig3, self.mid_axs3 = plt.subplots(1, 2, figsize=(6, 3))
         self.mid_canvas3 = self._add_canvas(mid, self.mid_fig3)
+      
         
     def _build_right_column(self, parent):
         right = tk.Frame(parent)
@@ -158,6 +162,7 @@ class MetricsWindow():
         self.right_fig4 = plt.figure(figsize=(5, 2))
         self.right_ax4 = self.right_fig4.add_subplot(111)
         self.right_canvas4 = self._add_canvas(right, self.right_fig4, expand=True)
+        
         
     def _add_canvas(self, parent, fig, expand=False):
         canvas = FigureCanvasTkAgg(fig, master=parent)
@@ -245,12 +250,12 @@ class MetricsWindow():
         species = metrics["species"]
         # species genes mean
         genes_mean = metrics["species_genes_mean"]
-        min_g_mean = min(min(genes_mean[s]) for s in species)
+        min_g_mean = 0 # min(min(genes_mean[s]) for s in species)
         max_g_mean = max(max(genes_mean[s]) for s in species)
         bar_plot(self.right_ax1, x, genes_mean[selected_species], selected_species, self.genes, 'Genes means', ymin=min_g_mean, ymax= max_g_mean)
         # species genes cv
         genes_cv = metrics["species_genes_cv"]
-        min_g_cv = min(min(genes_cv[s]) for s in species)
+        min_g_cv = 0 # min(min(genes_cv[s]) for s in species)
         max_g_cv = max(max(genes_cv[s]) for s in species)
         bar_plot(self.right_ax2, x, genes_cv[selected_species], selected_species, self.genes, 'Genes CVs', ymin=min_g_cv, ymax= max_g_cv)
         # brain
@@ -265,14 +270,6 @@ class MetricsWindow():
         min_b_std = min(min(brains_std[s][selected_action].values()) for s in species)
         max_b_std = max(max(brains_std[s][selected_action].values()) for s in species)
         bar_plot(self.right_ax4, x, metrics["species_brains_std"][selected_species][selected_action].values(), selected_species, labels, 'Brain stds', ymin=min_b_std, ymax= max_b_std)
-        
-    
-        
-    def make_radio_selector(self, parent, attrname, values, default):
-        setattr(self, attrname, tk.StringVar(value=default))
-        for v in values:
-            tk.Radiobutton(parent, text=str(v), value=v,
-                        variable=getattr(self, attrname)).pack(anchor="w")
             
 
     def on_close(self):
